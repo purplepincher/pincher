@@ -21,7 +21,7 @@
 //!
 //! let schema = OutputSchema::object()
 //!     .with_required("status", SchemaField::string().with_min_length(1))
-//!     .with_required("code", SchemaField::integer().with_minimum(0))
+//!     .with_required("code", SchemaField::integer().with_minimum(0.0))
 //!     .with_optional("message", SchemaField::string());
 //!
 //! let output = serde_json::json!({
