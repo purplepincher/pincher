@@ -16,11 +16,21 @@
 
 ---
 
+## Current Status
+
+**What ships today:** teach reflexes, run them fast (~50ms), migrate agent state between machines (`pack`/`unpack`). Veto engine for safety. Hash-based embeddings (ONNX MiniLM optional). PID resource controller for graceful degradation.
+
+**What's planned / in progress:** WASM carapace sandboxing (WIP), Landlock filesystem rules (feature-gated, not default), full immunology system (WIP), multi-agent coordination (planned), Python sidecar for LLM compilation (WIP).
+
+---
+
 ## What Is PincherOS?
 
 PincherOS is a **post-model operating system** for AI agents. It treats the LLM as a compiler, not a runtime. You teach your agent skills (called **reflexes**), and those reflexes execute directly at ~50ms with zero API cost. The LLM only fires when the agent encounters something genuinely new.
 
 Think of it this way: Docker lets you build an app once and run it on any server. PincherOS lets you **teach an agent once and run it on any device** — from a Raspberry Pi to a workstation — without rewriting, without API bills, and without losing its memory.
+
+**What ships today: teach reflexes, run them fast, migrate state between machines. What's planned: WASM sandboxing, immunology, multi-agent.**
 
 The system is built around a hermit crab metaphor that maps directly to how it works:
 
@@ -151,12 +161,12 @@ Real hardware has real limits. PincherOS uses a continuous PID (Proportional-Int
 
 ```mermaid
 flowchart TD
-    S["System Sensors<br/>(RAM, CPU, Disk)"] --> PID["PID Controller<br/>Kp=2.0 Ki=0.1 Kd=0.5"]
+    S["System Sensors<br/>(RAM, CPU, Disk)"] --> PID["PID Controller<br/>Kp=0.6 Ki=0.1 Kd=0.3"]
     PID --> B{Resource State?}
 
-    B -->|"RAM < 80%<br/>CPU < 60%"| N["NORMAL<br/>Full LLM access<br/>Full context window"]
-    B -->|"RAM 80-90%<br/>CPU 60-80%"| L["LIGHT<br/>Reduced context<br/>Skip LLM for confidence > 0.85"]
-    B -->|"RAM > 90%<br/>CPU > 80%"| C["CRITICAL<br/>Reflex-only mode<br/>No LLM calls at all"]
+    B -->|"RAM < 70%<br/>CPU < 60%"| N["NORMAL<br/>Full LLM access<br/>Full context window"]
+    B -->|"RAM 70-85%<br/>CPU 60-80%"| L["LIGHT<br/>Reduced context<br/>Skip LLM for confidence > 0.85"]
+    B -->|"RAM > 85%<br/>CPU > 80%"| C["CRITICAL<br/>Reflex-only mode<br/>No LLM calls at all"]
 
     N -->|"Pressure rises"| L
     L -->|"Pressure rises"| C
@@ -207,7 +217,7 @@ flowchart TD
 - No subprocess spawning without `subprocess` capability
 - File size limits enforced per-reflex
 
-**Sandbox** (bwrap + landlock) — After veto passes, the reflex runs inside a restricted namespace. The capability manifest declares exactly what the reflex needs, and the sandbox provides exactly that — nothing more.
+**Sandbox** (bwrap + landlock) (WIP) — After veto passes, the reflex runs inside a restricted namespace. Landlock is feature-gated and not enabled by default. The capability manifest declares exactly what the reflex needs, and the sandbox provides exactly that — nothing more.
 
 ---
 
@@ -476,5 +486,7 @@ PincherOS is released under the [MIT License](LICENSE).
 <img src="assets/hermit-crab.jpg" width="300" alt="Hermit Crab" />
 
 **Same crab. Bigger shell.**
+
+For a simpler, Python-based approach to intent-driven command execution, see [lever-runner](https://github.com/SuperInstance/lever-runner).
 
 </div>
