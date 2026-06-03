@@ -19,8 +19,7 @@
 //! the crab (guest), but only when the crab has the right permissions
 //! (capabilities) to do so.
 
-use crate::capability::manifest::CapabilityManifest;
-use super::capability::{CapabilityGate, GateError, GateResult, HostFunction};
+use super::capability::{CapabilityGate, GateError, HostFunction};
 
 // ── Error type ────────────────────────────────────────────────────────
 

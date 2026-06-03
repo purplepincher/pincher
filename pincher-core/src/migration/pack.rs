@@ -206,7 +206,7 @@ pub fn pack_nail(db_path: &Path, output: &Path) -> PackResult<()> {
     }
 
     // Create a temporary directory for staging
-    let temp_dir = tempfile::tempdir().map_err(|e| PackError::Io(e))?;
+    let temp_dir = tempfile::tempdir().map_err(PackError::Io)?;
     let temp_path = temp_dir.path();
 
     // Stage 1: Copy the database
@@ -336,7 +336,7 @@ pub fn unpack_nail(nail_path: &Path, output_dir: &Path) -> PackResult<()> {
 pub fn verify_nail(nail_path: &Path) -> PackResult<bool> {
     info!(nail_path = ?nail_path, "Verifying .nail archive");
 
-    let temp_dir = tempfile::tempdir().map_err(|e| PackError::Io(e))?;
+    let temp_dir = tempfile::tempdir().map_err(PackError::Io)?;
     let temp_path = temp_dir.path();
 
     // Extract to temp directory

@@ -745,7 +745,7 @@ fn json_type_name(value: &serde_json::Value) -> String {
         serde_json::Value::Null => "null".to_string(),
         serde_json::Value::Bool(_) => "boolean".to_string(),
         serde_json::Value::Number(n) => {
-            if n.is_f64() && n.as_f64().map_or(false, |f| f.fract() != 0.0) {
+            if n.is_f64() && n.as_f64().is_some_and(|f| f.fract() != 0.0) {
                 "number".to_string()
             } else {
                 "integer".to_string()
@@ -802,7 +802,7 @@ mod tests {
         assert!(validator.validate(&serde_json::json!(100), &schema).is_ok());
         assert!(validator.validate(&serde_json::json!(-1), &schema).is_err());
         assert!(validator.validate(&serde_json::json!(101), &schema).is_err());
-        assert!(validator.validate(&serde_json::json!(3.14), &schema).is_err());
+        assert!(validator.validate(&serde_json::json!(3.15), &schema).is_err());
     }
 
     #[test]

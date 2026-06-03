@@ -227,6 +227,7 @@ impl Sandbox {
     }
 
     /// Fallback: run the command directly without sandboxing.
+    #[allow(dead_code)]
     fn execute_raw(command: &str, args: &[&str]) -> Result<ExecutionResult> {
         let output = std::process::Command::new(command)
             .args(args)

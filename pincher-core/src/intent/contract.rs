@@ -168,7 +168,7 @@ impl IntentPattern {
     /// parts of the template. Returns a confidence score in [0.0, 1.0].
     pub fn match_score(&self, input: &str) -> f64 {
         let input_lower = input.to_lowercase();
-        let template_lower = self.template.to_lowercase();
+        let _template_lower = self.template.to_lowercase();
 
         // Simple approach: strip placeholders and check if the
         // literal parts appear in the input
@@ -220,9 +220,9 @@ impl IntentPattern {
         let mut parts = Vec::new();
         let mut current = String::new();
         let mut in_placeholder = false;
-        let mut chars = self.template.chars().peekable();
+        let chars = self.template.chars().peekable();
 
-        while let Some(c) = chars.next() {
+        for c in chars {
             if c == '{' {
                 if !current.trim().is_empty() {
                     parts.push(current.trim().to_string());
@@ -463,15 +463,14 @@ impl IntentContract {
                                 )));
                             }
                         }
-                        '*' | '+' | '?' | '{' => {
+                        '*' | '+' | '?' | '{' if ci == 0 => {
                             // Quantifiers must not appear at the start
-                            if ci == 0 {
-                                return Err(ContractError::Validation(format!(
-                                    "Pattern {} in contract '{}' has a quantifier at the start of regex",
-                                    i, self.name
-                                )));
-                            }
+                            return Err(ContractError::Validation(format!(
+                                "Pattern {} in contract '{}' has a quantifier at the start of regex",
+                                i, self.name
+                            )));
                         }
+                        '*' | '+' | '?' | '{' => {}
                         _ => {}
                     }
                 }
@@ -540,31 +539,29 @@ impl IntentContract {
         let mut chars = template.chars().peekable();
 
         while let Some(c) = chars.next() {
-            if c == '{' {
-                if chars.peek() == Some(&'{') {
-                    chars.next(); // consume second '{'
-                    let mut name = String::new();
-                    loop {
-                        match chars.peek() {
-                            Some(&'}') => {
+            if c == '{' && chars.peek() == Some(&'{') {
+                chars.next(); // consume second '{'
+                let mut name = String::new();
+                loop {
+                    match chars.peek() {
+                        Some(&'}') => {
+                            chars.next();
+                            if chars.peek() == Some(&'}') {
                                 chars.next();
-                                if chars.peek() == Some(&'}') {
-                                    chars.next();
-                                    break;
-                                } else {
-                                    name.push('}');
-                                }
+                                break;
+                            } else {
+                                name.push('}');
                             }
-                            Some(&ch) => {
-                                name.push(ch);
-                                chars.next();
-                            }
-                            None => break,
                         }
+                        Some(&ch) => {
+                            name.push(ch);
+                            chars.next();
+                        }
+                        None => break,
                     }
-                    if !name.is_empty() {
-                        vars.push(name);
-                    }
+                }
+                if !name.is_empty() {
+                    vars.push(name);
                 }
             }
         }
@@ -687,6 +684,7 @@ impl IntentContract {
 ///
 /// The TOML file wraps the contract in a `[contract]` section.
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct IntentToml {
     contract: IntentContract,
 }

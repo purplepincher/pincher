@@ -214,6 +214,7 @@ fn register_sqlite_vec() {
     REGISTERED.call_once(|| {
         debug!("Registering sqlite-vec extension (static auto-extension)");
         unsafe {
+            #[allow(clippy::missing_transmute_annotations)]
             rusqlite::ffi::sqlite3_auto_extension(Some(
                 std::mem::transmute(sqlite_vec::sqlite3_vec_init as *const ())
             ));

@@ -23,7 +23,7 @@
 //!    period can be pruned to prevent false positive accumulation.
 
 use chrono::Utc;
-use rusqlite::{params, Connection, Result as SqlResult};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use thiserror::Error;
@@ -157,7 +157,7 @@ impl ImmuneMemory {
         let conn = Connection::open(path)?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
 
-        let mut memory = Self { conn };
+        let memory = Self { conn };
         memory.run_migrations()?;
 
         info!("Immune memory database opened successfully");
@@ -169,7 +169,7 @@ impl ImmuneMemory {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
 
-        let mut memory = Self { conn };
+        let memory = Self { conn };
         memory.run_migrations()?;
 
         Ok(memory)

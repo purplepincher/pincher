@@ -456,7 +456,7 @@ mod tests {
 
     #[test]
     fn test_veto_capability_check() {
-        let engine = VetoEngine::with_defaults();
+        let _engine = VetoEngine::with_defaults();
         // A custom engine with a RequireCapability rule
         let mut engine = VetoEngine::new();
         engine.add_rule(VetoRule::RequireCapability { capability: "network".to_string() });

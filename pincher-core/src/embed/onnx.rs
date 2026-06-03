@@ -8,7 +8,6 @@
 //! embedding and hash-based similarity are available.
 
 use serde::{Deserialize, Serialize};
-use sha2::Digest;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::{debug, info, instrument, warn};

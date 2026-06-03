@@ -13,7 +13,7 @@ use pincher_core::{
     db::schema::get_all_reflexes,
 };
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -200,9 +200,9 @@ fn cmd_status(engine: &mut ReflexEngine) -> Result<()> {
     println!("  {} {}", "OS Version:".dimmed(), fp.os_version);
     println!("  {} {}", "CPU Cores:".dimmed(), fp.cpu_count);
     println!(
-        "  {} {}",
+        "  {} {:.1} GB",
         "Total RAM:".dimmed(),
-        format!("{:.1} GB", fp.ram_mb as f64 / 1024.0)
+        fp.ram_mb as f64 / 1024.0
     );
     println!(
         "  {} {}",
@@ -286,9 +286,9 @@ fn cmd_teach(engine: &mut ReflexEngine, intent: Option<String>, action: Option<S
     println!("  {} {}", "  Intent:".dimmed(), reflex.intent);
     println!("  {} {}", "  Action:".dimmed(), reflex.action);
     println!(
-        "  {} {}",
+        "  {} {:.2}",
         "  Confidence:".dimmed(),
-        format!("{:.2}", reflex.confidence)
+        reflex.confidence
     );
     print_timing("  Time", elapsed);
 
@@ -315,9 +315,9 @@ fn cmd_do(engine: &mut ReflexEngine, intent: &str) -> Result<()> {
         println!("  {} {}", "  Reflex ID:".dimmed(), reflex_id.cyan());
         println!("  {} {}", "  Match Type:".dimmed(), format!("{:?}", execution.match_type).cyan());
         println!(
-            "  {} {}",
+            "  {} {:.4}",
             "  Confidence:".dimmed(),
-            format!("{:.4}", execution.confidence)
+            execution.confidence
         );
         println!("  {} {}", "  Output:".dimmed(), truncate(&execution.output, 120));
     } else {
@@ -365,16 +365,16 @@ fn cmd_pack(_engine: &ReflexEngine, output: Option<PathBuf>) -> Result<()> {
     );
     println!("  {} {}", "  File:".dimmed(), output_path.display());
     println!(
-        "  {} {}",
+        "  {} {:.2} KB",
         "  Size:".dimmed(),
-        format!("{:.2} KB", file_size as f64 / 1024.0)
+        file_size as f64 / 1024.0
     );
     print_timing("  Time", elapsed);
 
     Ok(())
 }
 
-fn cmd_unpack(nail_path: &PathBuf, db_path: &str) -> Result<()> {
+fn cmd_unpack(nail_path: &Path, db_path: &str) -> Result<()> {
     println!(
         "\n{}",
         format!("Unpacking from {}", nail_path.display()).bright_red().bold()
@@ -577,9 +577,9 @@ fn cmd_shell_info(engine: &ReflexEngine) -> Result<()> {
     println!("  {} {}", "Architecture:".dimmed(), std::env::consts::ARCH);
     println!("  {} {}", "CPU Cores:".dimmed(), fp.cpu_count);
     println!(
-        "  {} {}",
+        "  {} {:.2} GB",
         "Total RAM:".dimmed(),
-        format!("{:.2} GB", fp.ram_mb as f64 / 1024.0)
+        fp.ram_mb as f64 / 1024.0
     );
     println!(
         "  {} {}",
@@ -841,9 +841,9 @@ fn print_reflex_detail(reflex: &Reflex) {
     println!("  {} {}", "    Intent:".dimmed(), reflex.intent);
     println!("  {} {}", "    Action:".dimmed(), reflex.action.cyan());
     println!(
-        "  {} {}",
+        "  {} {:.4}",
         "    Confidence:".dimmed(),
-        format!("{:.4}", reflex.confidence)
+        reflex.confidence
     );
     println!("  {} {}", "    Invoked:".dimmed(), reflex.invoke_count);
     println!();

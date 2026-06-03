@@ -344,15 +344,13 @@ fn execute_with_landlock(cmd: &str, _config: &SandboxConfig) -> SandboxResult<st
         ));
     }
 
-    let status = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(cmd)
-        .env("PATH", "/usr/bin:/bin")
-        .env("HOME", "/tmp")
-        .status()
-        .map_err(|e| SandboxError::Execution(format!("Failed to execute command: {}", e)))?;
-
-    Ok(status)
+    // Unreachable without a sandboxing mechanism; the error above is returned.
+    // This block is kept as a template for future sandbox backends.
+    #[allow(unreachable_code)]
+    {
+        let _ = cmd; // suppress unused variable warning
+        unreachable!()
+    }
 }
 
 #[cfg(feature = "landlock")]
