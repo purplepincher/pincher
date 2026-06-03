@@ -1,9 +1,9 @@
 //! Confidence tracking for reflexes.
 //!
 //! Confidence scores determine which execution path a matched reflex takes:
-//! - **Direct** (> 0.90) — execute immediately
-//! - **Confirm** (0.70 – 0.90) — execute but log for review
-//! - **LlmRoute** (< 0.70) — fall back to the LLM sidecar
+//! - **Direct** (> 0.80) — execute immediately
+//! - **Confirm** (0.55 – 0.80) — execute but log for review
+//! - **LlmRoute** (< 0.55) — fall back to the LLM sidecar
 
 use serde::Serialize;
 

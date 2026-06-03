@@ -1,10 +1,10 @@
 //! ONNX embedding module for PincherOS
 //!
 //! Provides text embedding using the all-MiniLM-L6-v2 model via the
-//! `ort` ONNX Runtime crate. Falls back to random embeddings if the
+//! `ort` ONNX Runtime crate. Falls back to deterministic hash embeddings if the
 //! model is not found (with a warning log).
 //!
-//! When the `onnx` feature is disabled, only the fallback (random)
+//! When the `onnx` feature is disabled, only the fallback (deterministic hash)
 //! embedding and hash-based similarity are available.
 
 use serde::{Deserialize, Serialize};
@@ -71,13 +71,13 @@ pub enum EmbedderState {
     /// ONNX model is loaded and ready.
     #[cfg(feature = "onnx")]
     Loaded(Arc<Session>),
-    /// Fallback mode: model not available, using random embeddings.
+    /// Fallback mode: model not available, using deterministic hash embeddings.
     Fallback,
 }
 
 /// ONNX-based text embedder using all-MiniLM-L6-v2.
 ///
-/// If the ONNX model cannot be loaded, falls back to random embeddings
+/// If the ONNX model cannot be loaded, falls back to deterministic hash embeddings
 /// with a warning. This allows the system to function in degraded mode.
 pub struct Embedder {
     state: EmbedderState,
@@ -221,7 +221,7 @@ impl Embedder {
                             warn!(
                                 error = %e,
                                 path = ?path,
-                                "Failed to load ONNX model, falling back to random embeddings"
+                                "Failed to load ONNX model, falling back to deterministic hash embeddings"
                             );
                             Ok(Self {
                                 state: EmbedderState::Fallback,
@@ -233,7 +233,7 @@ impl Embedder {
                 Some(path) => {
                     warn!(
                         path = ?path,
-                        "ONNX model not found, falling back to random embeddings."
+                        "ONNX model not found, falling back to deterministic hash embeddings."
                     );
                     Ok(Self {
                         state: EmbedderState::Fallback,
@@ -241,7 +241,7 @@ impl Embedder {
                     })
                 }
                 None => {
-                    warn!("No model path specified, falling back to random embeddings");
+                    warn!("No model path specified, falling back to deterministic hash embeddings");
                     Ok(Self {
                         state: EmbedderState::Fallback,
                         tokenizer,
@@ -253,7 +253,7 @@ impl Embedder {
         #[cfg(not(feature = "onnx"))]
         {
             let _ = model_path;
-            warn!("ONNX feature not enabled, using random embeddings");
+            warn!("ONNX feature not enabled, using deterministic hash embeddings.");
             Ok(Self {
                 state: EmbedderState::Fallback,
             })

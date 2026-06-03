@@ -27,9 +27,6 @@ uuid = { version = "1", features = ["v4", "serde"] }
 # System information
 sysinfo = "0.33"
 
-# Random number generation (for fallback embeddings)
-rand = "0.8"
-
 # BLAKE3 hashing
 blake3 = "1"
 

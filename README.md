@@ -45,9 +45,9 @@ flowchart TD
     B --> C{Match Against<br/>Known Reflexes}
     C --> D{Similarity Score?}
 
-    D -->|"> 0.90<br/>EXACT MATCH"| E["Execute Reflex Directly<br/>~50ms | $0"]
-    D -->|"0.70 - 0.90<br/>PROBABLE MATCH"| F["Confirm + Execute<br/>~3s | ~$0.001"]
-    D -->|"< 0.70<br/>NOVEL INTENT"| G["Route to LLM<br/>Compile → New Reflex"]
+    D -->|"> 0.80<br/>EXACT MATCH"| E["Execute Reflex Directly<br/>~50ms | $0"]
+    D -->|"0.55 - 0.80<br/>PROBABLE MATCH"| F["Confirm + Execute<br/>~3s | ~$0.001"]
+    D -->|"< 0.55<br/>NOVEL INTENT"| G["Route to LLM<br/>Compile → New Reflex"]
 
     G --> H["LLM Generates<br/>Action Template"]
     H --> I["Store as New Reflex<br/>Next Time: Instant"]
@@ -151,12 +151,12 @@ Real hardware has real limits. PincherOS uses a continuous PID (Proportional-Int
 
 ```mermaid
 flowchart TD
-    S["System Sensors<br/>(RAM, CPU, Disk)"] --> PID["PID Controller<br/>Kp=0.6 Ki=0.1 Kd=0.3"]
+    S["System Sensors<br/>(RAM, CPU, Disk)"] --> PID["PID Controller<br/>Kp=2.0 Ki=0.1 Kd=0.5"]
     PID --> B{Resource State?}
 
-    B -->|"RAM < 70%<br/>CPU < 60%"| N["NORMAL<br/>Full LLM access<br/>Full context window"]
-    B -->|"RAM 70-85%<br/>CPU 60-80%"| L["LIGHT<br/>Reduced context<br/>Skip LLM for confidence > 0.85"]
-    B -->|"RAM > 85%<br/>CPU > 80%"| C["CRITICAL<br/>Reflex-only mode<br/>No LLM calls at all"]
+    B -->|"RAM < 80%<br/>CPU < 60%"| N["NORMAL<br/>Full LLM access<br/>Full context window"]
+    B -->|"RAM 80-90%<br/>CPU 60-80%"| L["LIGHT<br/>Reduced context<br/>Skip LLM for confidence > 0.85"]
+    B -->|"RAM > 90%<br/>CPU > 80%"| C["CRITICAL<br/>Reflex-only mode<br/>No LLM calls at all"]
 
     N -->|"Pressure rises"| L
     L -->|"Pressure rises"| C
@@ -298,7 +298,7 @@ flowchart TB
     subgraph Core["pincher-core (Rust) — Owns ALL State"]
         direction TB
         DB["SQLite + sqlite-vec<br/>Reflexes · Sessions · Action Log"]
-        EM["Embedder<br/>SHA-256 trigram → 256-dim<br/>ONNX MiniLM → 384-dim"]
+        EM["Embedder<br/>SHA-256 trigram → 384-dim (fallback)<br/>ONNX MiniLM → 384-dim (optional)"]
         RE["Reflex Engine<br/>teach · match · do · confidence"]
         RC["PID Resource Controller<br/>Normal · Light · Critical"]
         SE["Security Layer<br/>Veto Engine · Sandbox · Capabilities"]
@@ -309,7 +309,7 @@ flowchart TB
         CL["pincher status · teach · do ·<br/>match · pack · unpack · bench ·<br/>reflexes · shell-info · rpc"]
     end
 
-    subgraph Infer["pincher-infer (Python) — Stateless"]
+    subgraph Infer["pincher-infer (Python) — Stateless (WIP)"]
         direction TB
         PY["JSON-RPC Server"]
         DI["Distiller<br/>LLM-as-Compiler"]
@@ -328,7 +328,7 @@ flowchart TB
 **Why two processes?**
 
 - **pincher-core** (Rust) owns every byte of state. SQLite for durability, embeddings for matching, PID for resource control. If the LLM crashes, the agent's mind is untouched.
-- **pincher-infer** (Python) is completely stateless. It loads when the LLM is needed, distills an intent into a reflex template, and unloads after 5 minutes of idle. Kill it, restart it — the agent doesn't care.
+- **pincher-infer** (Python) is completely stateless. **(WIP — not yet wired to core)** The design calls for loading when the LLM is needed, distilling an intent into a reflex template, and unloading after 5 minutes of idle. Kill it, restart it — the agent doesn't care.
 
 This separation means your agent's personality and memories survive:
 - LLM API outages (reflexes still fire)
@@ -401,7 +401,7 @@ pincherOS/
 │       └── teach_and_do.rs     #   Quick library usage demo
 ├── pincher-cli/                # CLI binary — the exoskeleton
 │   └── src/main.rs
-├── pincher-infer/              # Python sidecar — the LLM compiler
+├── pincher-infer/              # Python sidecar — the LLM compiler (WIP)
 │   └── pincher_infer/
 │       ├── server.py           #   JSON-RPC over UDS
 │       ├── distill.py          #   LLM-as-compiler (intent → action template)
