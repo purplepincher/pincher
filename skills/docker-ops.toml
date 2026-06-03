@@ -1,0 +1,29 @@
+[skill]
+name = "docker-ops"
+version = "0.1.0"
+description = "Container management commands"
+category = "devops"
+tags = ["docker", "containers", "images", "compose", "devops"]
+
+[skill.intent]
+canonical = "manage docker containers"
+variations = [
+    "list docker containers",
+    "show running containers",
+    "docker ps",
+    "list docker images",
+    "restart a container",
+    "stop a container",
+    "docker compose status",
+    "show container logs",
+    "container health",
+]
+
+[skill.capabilities]
+required = ["subprocess"]
+optional = ["network"]
+
+[skill.reflex]
+action_template = "docker ps -a && docker images"
+confidence_seed = 0.65
+resource_mode = "normal"

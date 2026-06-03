@@ -1,0 +1,28 @@
+[skill]
+name = "agent-migrate"
+version = "0.1.0"
+description = "Pack/unpack agent state for migration between shells"
+category = "agent"
+tags = ["migration", "pack", "unpack", "nail", "transfer", "shell-swap"]
+
+[skill.intent]
+canonical = "migrate the agent to a new shell"
+variations = [
+    "pack the agent for transfer",
+    "create a nail file",
+    "export agent state",
+    "unpack agent on this machine",
+    "migrate to new hardware",
+    "shell swap",
+    "move the crab to a new shell",
+    "transfer agent to another device",
+]
+
+[skill.capabilities]
+required = ["subprocess"]
+optional = ["network"]
+
+[skill.reflex]
+action_template = "pincher pack ${name}.nail"
+confidence_seed = 0.75
+resource_mode = "normal"

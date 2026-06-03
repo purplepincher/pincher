@@ -1,0 +1,30 @@
+[skill]
+name = "system-monitor"
+version = "0.1.0"
+description = "Monitor system resources and report status"
+category = "system"
+tags = ["monitoring", "resources", "status", "health", "cpu", "ram", "disk"]
+
+[skill.intent]
+canonical = "check system resource usage"
+variations = [
+    "how much RAM am I using",
+    "show me CPU usage",
+    "system status",
+    "is memory running low",
+    "check disk space",
+    "what's my uptime",
+    "how long has the machine been running",
+    "resource health check",
+    "show system load",
+    "memory utilization",
+]
+
+[skill.capabilities]
+required = ["subprocess"]
+optional = []
+
+[skill.reflex]
+action_template = "free -h && df -h && uptime"
+confidence_seed = 0.70
+resource_mode = "light"

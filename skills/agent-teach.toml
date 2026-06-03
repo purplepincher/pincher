@@ -1,0 +1,27 @@
+[skill]
+name = "agent-teach"
+version = "0.1.0"
+description = "Teach the agent a new reflex from an intent-action pair"
+category = "agent"
+tags = ["teach", "learn", "reflex", "training", "agent"]
+
+[skill.intent]
+canonical = "teach the agent a new reflex"
+variations = [
+    "teach me something new",
+    "add a new skill",
+    "learn this command",
+    "remember this action",
+    "associate this intent with an action",
+    "train a new reflex",
+    "I want to teach you",
+]
+
+[skill.capabilities]
+required = []
+optional = []
+
+[skill.reflex]
+action_template = "pincher teach --intent '${intent}' --action '${action}'"
+confidence_seed = 0.80
+resource_mode = "light"

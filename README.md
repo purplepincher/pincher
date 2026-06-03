@@ -390,8 +390,12 @@ pincherOS/
 │   │   ├── security/           #   Veto engine + sandbox + capabilities
 │   │   ├── migration/          #   .nail pack/unpack + hardware fingerprinting
 │   │   ├── capability/         #   Capability manifests + tokens
+│   │   ├── intent/             #   Intent.toml v2 contracts + schema validation
+│   │   ├── immunology/         #   Adversarial distillation + immune memory
+│   │   ├── carapace/           #   WASM sandbox bridge for guest code
 │   │   ├── dynamics/           #   Command dynamics (deterministic veto)
 │   │   ├── shell/              #   Hardware probing
+│   │   ├── sandbox/            #   Bubblewrap + landlock execution
 │   │   └── rpc/                #   JSON-RPC server for Python sidecar
 │   └── examples/
 │       └── teach_and_do.rs     #   Quick library usage demo
@@ -412,10 +416,14 @@ pincherOS/
 ├── docs/
 │   ├── agent/                  # Agent-centric documentation (a2a native)
 │   ├── adr/                    # Architecture Decision Records
-│   ├── research/               # Post-MVP research RFCs
+│   ├── research/               # Post-MVP research RFCs & design reviews
+│   ├── ROADMAP.md              # 12-week MVP sprint plan
+│   ├── MVP_CHECKLIST.md        # MVP exit criteria
 │   ├── nail-format.md          # .nail binary format spec
 │   ├── threats.md              # Security threat model
 │   └── RISKS.md                # Risk register
+├── skills/                     # Starter agent skills (vectorDB-ready)
+├── tools/                      # Python dev tools (DeepInfra, model router)
 └── .github/workflows/ci.yml   # GitHub Actions CI
 ```
 
@@ -427,8 +435,8 @@ pincherOS/
 
 | Document | Description |
 |---|---|
-| [ROADMAP.md](ROADMAP.md) | 12-week MVP sprint + 6-month ecosystem horizon |
-| [MVP_CHECKLIST.md](MVP_CHECKLIST.md) | Exit criteria for the MVP |
+| [ROADMAP.md](docs/ROADMAP.md) | 12-week MVP sprint + 6-month ecosystem horizon |
+| [MVP_CHECKLIST.md](docs/MVP_CHECKLIST.md) | Exit criteria for the MVP |
 | [docs/nail-format.md](docs/nail-format.md) | `.nail` binary format specification |
 | [docs/threats.md](docs/threats.md) | Security threat model |
 | [docs/RISKS.md](docs/RISKS.md) | Risk register |

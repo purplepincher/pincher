@@ -1,0 +1,28 @@
+[skill]
+name = "package-manage"
+version = "0.1.0"
+description = "Install, remove, and query system packages"
+category = "system"
+tags = ["packages", "install", "apt", "brew", "pip", "dependencies"]
+
+[skill.intent]
+canonical = "manage system packages"
+variations = [
+    "install a package",
+    "remove a package",
+    "is this package installed",
+    "update all packages",
+    "what packages are installed",
+    "upgrade the system",
+    "search for a package",
+    "install dependencies",
+]
+
+[skill.capabilities]
+required = ["subprocess"]
+optional = ["network"]
+
+[skill.reflex]
+action_template = "apt list --installed 2>/dev/null || brew list || pip list"
+confidence_seed = 0.60
+resource_mode = "normal"

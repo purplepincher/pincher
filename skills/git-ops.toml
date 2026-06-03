@@ -1,0 +1,29 @@
+[skill]
+name = "git-ops"
+version = "0.1.0"
+description = "Common git operations and repository status"
+category = "devops"
+tags = ["git", "version-control", "commit", "branch", "diff", "log"]
+
+[skill.intent]
+canonical = "perform git operations"
+variations = [
+    "show git status",
+    "what changed in git",
+    "show me the git log",
+    "what branch am I on",
+    "git diff",
+    "commit my changes",
+    "list git branches",
+    "show recent commits",
+    "what's the git status",
+]
+
+[skill.capabilities]
+required = ["subprocess"]
+optional = ["network"]
+
+[skill.reflex]
+action_template = "git status && git log --oneline -5 && git branch -a"
+confidence_seed = 0.70
+resource_mode = "light"

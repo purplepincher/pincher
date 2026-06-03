@@ -1,0 +1,30 @@
+[skill]
+name = "text-process"
+version = "0.1.0"
+description = "Text transformation and analysis"
+category = "data"
+tags = ["text", "transform", "json", "csv", "parse", "extract", "format"]
+
+[skill.intent]
+canonical = "process text data"
+variations = [
+    "parse this JSON",
+    "extract data from CSV",
+    "format text output",
+    "count lines in a file",
+    "sort text alphabetically",
+    "find unique lines",
+    "transform text format",
+    "extract specific fields",
+    "pretty print JSON",
+    "convert CSV to JSON",
+]
+
+[skill.capabilities]
+required = ["subprocess"]
+optional = []
+
+[skill.reflex]
+action_template = "cat ${file} | python3 -m json.tool 2>/dev/null || cat ${file}"
+confidence_seed = 0.60
+resource_mode = "light"

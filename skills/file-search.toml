@@ -1,0 +1,29 @@
+[skill]
+name = "file-search"
+version = "0.1.0"
+description = "Find files by name, content, or pattern"
+category = "file"
+tags = ["search", "find", "files", "grep", "locate"]
+
+[skill.intent]
+canonical = "search for files"
+variations = [
+    "find files matching a pattern",
+    "search for a file by name",
+    "grep for text in files",
+    "where is that file",
+    "locate a file",
+    "find all python files",
+    "search file contents",
+    "find recently modified files",
+    "which files contain this text",
+]
+
+[skill.capabilities]
+required = ["subprocess"]
+optional = []
+
+[skill.reflex]
+action_template = "find . -type f -name '${pattern}' 2>/dev/null | head -20"
+confidence_seed = 0.65
+resource_mode = "normal"
