@@ -12,7 +12,8 @@
 |---|---|---|---|
 | Random `np.random.randn` | 6–9 µs | 15–35 µs | **Broken** — random vectors, no semantic meaning |
 | Deterministic hash (pincherOS fallback) | 54–55 µs | 112–200 µs | SHA-256 trigram + word hashing; deterministic but not semantic |
-| ONNX MiniLM-L6-v2 (CPU) | **8.1 ms** | **44.4 ms** | Real semantic embeddings via ONNX Runtime CPU |
+| ONNX MiniLM-L6-v2 FP32 (CPU) | **8.1 ms** | **44.4 ms** | Real semantic embeddings, 87MB model |
+| ONNX MiniLM-L6-v2 O4 quantized (CPU) | **19.6 ms** | **82.7 ms** | INT8 quantized, 43MB model — slower on CPU! |
 | Cosine similarity (384-dim) | 2.5 µs | 3.5 µs | Post-embedding comparison is cheap |
 
 ### Similarity Quality
@@ -63,7 +64,8 @@ The SHA-256 trigram/word hash fallback in `onnx.rs` is:
 
 ### For v0.2
 1. **Bundle the quantized ONNX model** (~23MB with O4 quantization) to avoid download at runtime
-2. **Try `model_O4.onnx`** (INT8 quantized) — should be ~23MB and faster on CPU
+2. **Skip `model_O4.onnx`** (INT8 quantized) — it's 43MB and actually **slower** on CPU (19.6ms vs 8.1ms). Quantization only helps with CUDA EP + TensorRT
+3. **Ship the FP32 `model.onnx`** (87MB) — fastest on CPU at 8.1ms median
 3. **Enable CUDA EP** on bare-metal deploys — compile `ort` with `cuda` feature for ~1-2ms inference
 
 ### For bare-metal RTX 4050 deploy
@@ -81,4 +83,9 @@ The full FP32 ONNX model is saved at:
 ~/.pincher/models/all-MiniLM-L6-v2-int8.onnx (87MB, FP32)
 ```
 
-Note: Despite the filename, this is the FP32 model. The INT8 quantized variant at HF is `model_O4.onnx` — worth downloading separately for smaller size.
+The O4 quantized model is also saved at:
+```
+pincher-core/models/model_O4.onnx (43MB, INT8 quantized)
+```
+
+**Recommendation: Ship the FP32 model for CPU inference.** The O4 quantized model is 2.4x slower on CPU (19.6ms vs 8.1ms) — quantization only helps with CUDA EP + TensorRT.
