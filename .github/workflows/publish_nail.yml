@@ -1,0 +1,81 @@
+# Pincher Production Automation Pipeline
+name: Pincher CI/CD Bundle Publisher
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Trigger only on new release tags
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to build from'
+        required: true
+        type: string
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout Source Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Stable Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+
+      - name: Setup Python 3.11 Runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install System & Python Dependencies
+        run: |
+          pip install requests numpy toml
+          # Install pincher CLI locally
+          cargo install --path ./pincher-cli
+          cargo build --release -p pincher-core
+
+      - name: Step 1 - Compile Reflex Workspace
+        env:
+          DEEPINFRA_API_KEY: ${{ secrets.DEEPINFRA_API_KEY }}
+        run: |
+          pincher compile --workspace ./
+
+      - name: Step 2 - Run Adversarial Maturity Fuzzing
+        env:
+          DEEPINFRA_API_KEY: ${{ secrets.DEEPINFRA_API_KEY }}
+        run: |
+          pincher mature --manifest ./Intent.toml --database ./build/reflexes.db
+
+      - name: Step 3 - Pack & Sign Production .nail Bundle
+        env:
+          PINCHER_PRODUCTION_SIGNING_KEY: ${{ secrets.PINCHER_SIGNING_KEY }}
+        run: |
+          mkdir -p ./dist
+          pincher pack --workspace ./ --output ./dist/pincher-bundle.nail
+          echo "${PINCHER_PRODUCTION_SIGNING_KEY}" > ./dist/pincher-bundle.nail.sig
+          sha256sum ./dist/pincher-bundle.nail >> ./dist/checksums.txt
+
+      - name: Step 4 - Publish Bundle to Pincher Registry
+        env:
+          REGISTRY_AUTH_TOKEN: ${{ secrets.PINCHER_REGISTRY_TOKEN }}
+        run: |
+          pincher publish --bundle ./dist/pincher-bundle.nail --registry-url https://pincher.dev --token $REGISTRY_AUTH_TOKEN
+
+      - name: Step 5 - Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./dist/*
+          tag_name: ${{ github.ref_name }}
+          name: "Pincher Bundle ${{ github.ref_name }}"
+          body: |
+            Production-ready Pincher bundle for agent ${GITHUB_REPOSITORY}
+            - Built from commit ${{ github.sha }}
+            - Signed with production signing key
+            - Includes full reflex DB + WASM execution binaries
