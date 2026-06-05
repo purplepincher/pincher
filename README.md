@@ -1,5 +1,7 @@
 # 🦀 Pincher — Vector DB as Runtime, LLM as Compiler
 
+> **📚 Documentation:** [`PLUG_AND_PLAY.md`](./PLUG_AND_PLAY.md) · [`GETTING_STARTED.md`](./GETTING_STARTED.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`API_REFERENCE.md`](./API_REFERENCE.md) · [`LOW_LEVEL.md`](./LOW_LEVEL.md)
+
 **Version:** 0.1.0  
 **Maintainer:** oracle2  
 **Lineage:** PincherOS, cocapn-runtime, PLATO, fleet I2I
