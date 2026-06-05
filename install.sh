@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # install.sh — One-command installer for PincherOS
-# Usage: curl -fsSL https://raw.githubusercontent.com/SuperInstance/pincherOS/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/SuperInstance/pincher/main/install.sh | bash
 set -euo pipefail
 
 RED='\033[0;31m'
@@ -44,8 +44,8 @@ if [ -f "${SCRIPT_DIR}/Cargo.toml" ] && [ -d "${SCRIPT_DIR}/pincher-core" ]; the
 else
     # Clone if not already in a repo
     info "Cloning PincherOS repository..."
-    REPO_DIR="$(mktemp -d)/pincherOS"
-    git clone https://github.com/SuperInstance/pincherOS.git "${REPO_DIR}"
+    REPO_DIR="$(mktemp -d)/pincher"
+    git clone https://github.com/SuperInstance/pincher.git "${REPO_DIR}"
     ok "Repository cloned"
 fi
 

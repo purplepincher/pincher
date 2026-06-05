@@ -9,8 +9,8 @@ The simplest possible PincherOS example. You'll teach one reflex, execute it, an
 You need a built copy of PincherOS. If you haven't built it yet:
 
 ```bash
-git clone https://github.com/SuperInstance/pincherOS.git
-cd pincherOS
+git clone https://github.com/SuperInstance/pincher.git
+cd pincher
 cargo build --release
 ```
 

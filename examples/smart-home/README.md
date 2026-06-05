@@ -36,8 +36,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source "$HOME/.cargo/env"
 
 # Clone and build
-git clone https://github.com/SuperInstance/pincherOS.git
-cd pincherOS
+git clone https://github.com/SuperInstance/pincher.git
+cd pincher
 cargo build --release
 
 # This takes ~15 minutes on a Pi 4. Go get coffee.
@@ -50,7 +50,7 @@ cargo build --release
 rustup target add aarch64-unknown-linux-gnu
 sudo apt install gcc-aarch64-linux-gnu
 
-cd pincherOS
+cd pincher
 cargo build --release --target aarch64-unknown-linux-gnu
 
 # Copy the binary to your Pi

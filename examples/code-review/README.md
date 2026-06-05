@@ -145,7 +145,7 @@ jobs:
 
       - name: Install PincherOS
         run: |
-          curl -sSL https://github.com/SuperInstance/pincherOS/releases/latest/download/pincher-linux-amd64 -o /usr/local/bin/pincher
+          curl -sSL https://github.com/SuperInstance/pincher/releases/latest/download/pincher-linux-amd64 -o /usr/local/bin/pincher
           chmod +x /usr/local/bin/pincher
 
       - name: Unpack review agent

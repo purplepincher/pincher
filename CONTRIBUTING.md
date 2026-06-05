@@ -10,8 +10,8 @@ Be respectful. Be constructive. Be patient.
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/SuperInstance/pincherOS.git
-cd pincherOS
+git clone https://github.com/SuperInstance/pincher.git
+cd pincher
 
 # 2. Build
 cargo build
