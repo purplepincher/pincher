@@ -450,17 +450,15 @@ pub fn search_nearest(
 ) -> SqlResult<Vec<(String, f32, ReflexRow)>> {
     let query_bytes = embed_to_bytes(query_embedding);
 
-    let mut stmt = conn.prepare(&format!(
+    let mut stmt = conn.prepare(
         "SELECT v.id, v.distance, r.intent, r.action_sql, r.embedding, r.confidence, r.invoke_count, r.last_invoked, r.created_at
          FROM vec_reflexes v
          JOIN reflexes r ON v.id = r.id
-         WHERE v.embedding MATCH ?1
-         ORDER BY v.distance
-         LIMIT {}",
-        limit
-    ))?;
+         WHERE v.embedding MATCH ?1 AND k = ?2
+         ORDER BY v.distance"
+    )?;
 
-    let rows = stmt.query_map(params![query_bytes], |row| {
+    let rows = stmt.query_map(params![query_bytes, limit as i64], |row| {
         let id: String = row.get(0)?;
         let distance: f32 = row.get(1)?;
         let intent: String = row.get(2)?;
