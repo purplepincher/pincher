@@ -197,3 +197,30 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+    /// Manage gastrolith checkpoint migration
+    Gastrolith {
+        #[command(subcommand)]
+        command: GastrolithCommands,
+    },
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum GastrolithCommands {
+    /// Create a new gastrolith checkpoint
+    Create {
+        #[arg(long, default_value = "gastrolith.json")]
+        output: PathBuf,
+    },
+    /// Validate a gastrolith checkpoint
+    Validate {
+        #[arg(long)]
+        checkpoint: PathBuf,
+    },
+    /// Migrate agent using gastrolith checkpoint
+    Migrate {
+        #[arg(long)]
+        gastrolith: PathBuf,
+        #[arg(long)]
+        bundle: PathBuf,
+    },
+}
