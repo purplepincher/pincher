@@ -8,6 +8,8 @@ use crate::embed::Embedder;
 use crate::reflex::matcher::{match_reflex, MatchResult};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 use thiserror::Error;
 use tracing::{debug, info, instrument, warn};
@@ -39,6 +41,12 @@ pub enum EngineError {
 
 /// Result type for engine operations.
 pub type EngineResult<T> = Result<T, EngineError>;
+
+/// Interval between automatic WAL checkpoints (seconds).
+const WAL_CHECKPOINT_INTERVAL_SECS: u64 = 30;
+
+/// Number of write operations after which a WAL checkpoint is triggered.
+const WAL_CHECKPOINT_OPS_THRESHOLD: u64 = 100;
 
 /// A learned reflex with its metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -123,15 +131,36 @@ fn dispatch_builtin(intent: &str, action: &str, input: &str) -> EngineResult<Str
 pub struct ReflexEngine {
     conn: Connection,
     embedder: Embedder,
+    /// Timestamp (in seconds since a reference epoch) of the last WAL checkpoint.
+    last_checkpoint_epoch: Arc<AtomicU64>,
+    /// Approximate count of write operations since the last WAL checkpoint.
+    ops_since_checkpoint: Arc<AtomicU64>,
 }
 
 impl ReflexEngine {
     /// Create a new ReflexEngine with the given database connection and embedder.
     pub fn new(conn: Connection, embedder: Embedder) -> Self {
-        Self { conn, embedder }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        Self {
+            conn,
+            embedder,
+            last_checkpoint_epoch: Arc::new(AtomicU64::new(now)),
+            ops_since_checkpoint: Arc::new(AtomicU64::new(0)),
+        }
     }
 
     /// Create a new ReflexEngine by opening the database at the given path.
+    ///
+    /// The underlying SQLite connection is opened with WAL journal mode
+    /// and a 5-second busy timeout (see [`schema::init_db`]).
+    ///
+    /// Periodic WAL checkpoint management runs automatically on write
+    /// operations: `PRAGMA wal_checkpoint(TRUNCATE)` is invoked every
+    /// ~30 seconds or after 100 write operations, whichever comes first.
+    /// If the DB is busy, it falls back to PASSIVE mode.
     pub fn open(
         db_path: &std::path::Path,
         model_path: Option<&std::path::Path>,
@@ -139,7 +168,7 @@ impl ReflexEngine {
         let conn = schema::init_db(db_path)?;
         let embedder = Embedder::new(model_path)?;
 
-        let engine = Self { conn, embedder };
+        let engine = Self::new(conn, embedder);
 
         // Seed embeddings for built-in reflexes (non-fatal)
         // We can't access conn after moving it, so we'll skip this for now
@@ -162,6 +191,7 @@ impl ReflexEngine {
 
             let embedding = self.embedder.embed(intent)?;
             schema::update_reflex_embedding(&self.conn, &existing.id, &embedding)?;
+            self.record_write_and_checkpoint();
 
             return Ok(Reflex::from(existing));
         }
@@ -170,6 +200,7 @@ impl ReflexEngine {
         let id = uuid::Uuid::new_v4().to_string();
 
         schema::insert_reflex(&self.conn, &id, intent, action, &embedding, 0.5)?;
+        self.record_write_and_checkpoint();
 
         info!(
             reflex_id = id,
@@ -253,25 +284,7 @@ impl ReflexEngine {
         let start = Instant::now();
 
         // SECURITY: Run veto check before any execution
-        let action_to_check = if is_builtin_intent(&reflex.intent) {
-            &reflex.intent
-        } else {
-            &reflex.action
-        };
-        let veto_context = crate::security::veto::ExecutionContext::for_command(action_to_check);
-        let veto_engine = crate::security::veto::VetoEngine::default();
-        let veto_result = veto_engine
-            .check(action_to_check, &veto_context)
-            .map_err(|e| EngineError::Vetoed(format!("Veto check failed: {}", e)))?;
-        match &veto_result {
-            crate::security::veto::VetoDecision::Deny(reason) => {
-                return Err(EngineError::Vetoed(format!("Action denied: {}", reason)));
-            }
-            crate::security::veto::VetoDecision::RequireConfirmation(reason) => {
-                debug!("Action requires confirmation (proceeding): {}", reason);
-            }
-            crate::security::veto::VetoDecision::Allow => {}
-        }
+        self.check_veto(&reflex.intent, &reflex.action)?;
 
         let is_builtin = is_builtin_intent(&reflex.intent);
 
@@ -294,6 +307,7 @@ impl ReflexEngine {
             latency_ms,
             reflex.confidence,
         )?;
+        self.record_write_and_checkpoint();
 
         Ok(Execution {
             output,
@@ -319,25 +333,7 @@ impl ReflexEngine {
         let start = Instant::now();
 
         // SECURITY: Run veto check before any execution
-        let action_to_check = if is_builtin_intent(&reflex.intent) {
-            &reflex.intent
-        } else {
-            &reflex.action_sql
-        };
-        let veto_context = crate::security::veto::ExecutionContext::for_command(action_to_check);
-        let veto_engine = crate::security::veto::VetoEngine::default();
-        let veto_result = veto_engine
-            .check(action_to_check, &veto_context)
-            .map_err(|e| EngineError::Vetoed(format!("Veto check failed: {}", e)))?;
-        match &veto_result {
-            crate::security::veto::VetoDecision::Deny(reason) => {
-                return Err(EngineError::Vetoed(format!("Action denied: {}", reason)));
-            }
-            crate::security::veto::VetoDecision::RequireConfirmation(reason) => {
-                debug!("Action requires confirmation (proceeding): {}", reason);
-            }
-            crate::security::veto::VetoDecision::Allow => {}
-        }
+        self.check_veto(&reflex.intent, &reflex.action_sql)?;
 
         let is_builtin = is_builtin_intent(&reflex.intent);
 
@@ -359,6 +355,7 @@ impl ReflexEngine {
             latency_ms,
             reflex.confidence,
         )?;
+        self.record_write_and_checkpoint();
 
         Ok(Execution {
             output,
@@ -368,6 +365,34 @@ impl ReflexEngine {
             reflex_id: Some(reflex.id.clone()),
             intent: reflex.intent.clone(),
         })
+    }
+
+    /// Check veto policy for the given intent and action.
+    ///
+    /// Returns `Ok(())` if the action is allowed or requires only confirmation;
+    /// returns `Err(EngineError::Vetoed)` if the action is denied.
+    fn check_veto(&self, intent: &str, action: &str) -> EngineResult<()> {
+        // SECURITY: Run veto check before any execution
+        let action_to_check = if is_builtin_intent(intent) {
+            intent
+        } else {
+            action
+        };
+        let veto_context = crate::security::veto::ExecutionContext::for_command(action_to_check);
+        let veto_engine = crate::security::veto::VetoEngine::default();
+        let veto_result = veto_engine
+            .check(action_to_check, &veto_context)
+            .map_err(|e| EngineError::Vetoed(format!("Veto check failed: {}", e)))?;
+        match &veto_result {
+            crate::security::veto::VetoDecision::Deny(reason) => {
+                return Err(EngineError::Vetoed(format!("Action denied: {}", reason)));
+            }
+            crate::security::veto::VetoDecision::RequireConfirmation(reason) => {
+                debug!("Action requires confirmation (proceeding): {}", reason);
+            }
+            crate::security::veto::VetoDecision::Allow => {}
+        }
+        Ok(())
     }
 
     /// Execute an action SQL string.
@@ -520,6 +545,74 @@ impl ReflexEngine {
 
         schema::update_reflex_confidence(&self.conn, reflex_id, new_confidence)?;
         Ok(())
+    }
+
+    /// Perform a WAL checkpoint if enough time has elapsed or enough write
+    /// operations have accumulated since the last checkpoint.
+    ///
+    /// Runs `PRAGMA wal_checkpoint(TRUNCATE)` to prevent unbounded WAL growth.
+    /// If TRUNCATE fails (e.g. the DB is busy), falls back to PASSIVE mode
+    /// which only checkpoints what it can without blocking readers or writers.
+    ///
+    /// Called automatically by write operations (`teach`, `execute`, etc.).
+    pub fn checkpoint_wal_if_needed(&self) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let last = self.last_checkpoint_epoch.load(Ordering::Relaxed);
+        let ops = self.ops_since_checkpoint.load(Ordering::Relaxed);
+
+        let elapsed = now.saturating_sub(last);
+        if elapsed < WAL_CHECKPOINT_INTERVAL_SECS && ops < WAL_CHECKPOINT_OPS_THRESHOLD {
+            return;
+        }
+
+        // Reset counters early so concurrent calls don't both attempt a checkpoint
+        if self
+            .last_checkpoint_epoch
+            .compare_exchange(last, now, Ordering::Release, Ordering::Relaxed)
+            .is_err()
+        {
+            return; // another thread already started a checkpoint
+        }
+        self.ops_since_checkpoint.store(0, Ordering::Relaxed);
+
+        debug!(
+            elapsed_secs = elapsed,
+            ops_since_last = ops,
+            "Performing WAL checkpoint (TRUNCATE)"
+        );
+
+        // TRUNCATE is ideal — resets the WAL to minimal size — but requires
+        // that no other readers/writers hold the WAL open.
+        // PRAGMA statements return rows; use query_row and discard the result.
+        if let Err(e) = self.conn.query_row(
+            "PRAGMA wal_checkpoint(TRUNCATE)",
+            [],
+            |_| Ok(()),
+        ) {
+            debug!(
+                error = %e,
+                "WAL checkpoint TRUNCATE failed, retrying with PASSIVE"
+            );
+            if let Err(e2) = self.conn.query_row(
+                "PRAGMA wal_checkpoint(PASSIVE)",
+                [],
+                |_| Ok(()),
+            ) {
+                warn!("WAL checkpoint (PASSIVE) also failed: {}", e2);
+            }
+        }
+    }
+
+    /// Record a write operation for checkpoint accounting.
+    ///
+    /// Each call increments the operation counter and triggers a WAL
+    /// checkpoint if the threshold has been reached.
+    fn record_write_and_checkpoint(&self) {
+        self.ops_since_checkpoint.fetch_add(1, Ordering::Relaxed);
+        self.checkpoint_wal_if_needed();
     }
 
     /// Get the database connection reference.

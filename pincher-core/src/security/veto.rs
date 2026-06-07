@@ -407,6 +407,31 @@ fn default_veto_rules() -> Vec<VetoRule> {
         VetoRule::ForbiddenCommand {
             pattern: "pip install".to_string(),
         },
+        // Block encoded command evasion techniques
+        VetoRule::ForbiddenPattern {
+            pattern: "base64 -d".to_string(),
+            reason: "Base64 decoding to shell pipe is a known evasion technique".to_string(),
+        },
+        VetoRule::ForbiddenPattern {
+            pattern: "eval ".to_string(),
+            reason: "eval() execution is dangerous".to_string(),
+        },
+        VetoRule::ForbiddenPattern {
+            pattern: "exec ".to_string(),
+            reason: "exec() is a known bypass vector".to_string(),
+        },
+        VetoRule::ForbiddenPattern {
+            pattern: "powershell -enc".to_string(),
+            reason: "Encoded PowerShell commands are dangerous".to_string(),
+        },
+        VetoRule::ForbiddenPattern {
+            pattern: "python -c".to_string(),
+            reason: "Inline Python execution is potentially dangerous".to_string(),
+        },
+        VetoRule::ForbiddenPattern {
+            pattern: "perl -e".to_string(),
+            reason: "Inline Perl execution is potentially dangerous".to_string(),
+        },
     ]
 }
 
@@ -465,6 +490,46 @@ mod tests {
             .check("curl http://example.com", &context_with_cap)
             .unwrap();
         assert!(decision2.is_allowed());
+    }
+
+    #[test]
+    fn test_veto_deny_base64_pipe() {
+        let engine = VetoEngine::with_defaults();
+        let context = ExecutionContext::for_command("echo Y3VybA== | base64 -d | sh");
+        let decision = engine.check("echo Y3VybA== | base64 -d | sh", &context).unwrap();
+        assert!(decision.is_denied());
+    }
+
+    #[test]
+    fn test_veto_deny_eval() {
+        let engine = VetoEngine::with_defaults();
+        let context = ExecutionContext::for_command("eval \"rm -rf /\"");
+        let decision = engine.check("eval \"rm -rf /\"", &context).unwrap();
+        assert!(decision.is_denied());
+    }
+
+    #[test]
+    fn test_veto_deny_powershell_enc() {
+        let engine = VetoEngine::with_defaults();
+        let context = ExecutionContext::for_command("powershell -enc ZwByAG8AdQBwACAA");
+        let decision = engine.check("powershell -enc ZwByAG8AdQBwACAA", &context).unwrap();
+        assert!(decision.is_denied());
+    }
+
+    #[test]
+    fn test_veto_deny_python_c() {
+        let engine = VetoEngine::with_defaults();
+        let context = ExecutionContext::for_command("python -c 'import os; os.system(\"ls\")'");
+        let decision = engine.check("python -c 'import os; os.system(\"ls\")'", &context).unwrap();
+        assert!(decision.is_denied());
+    }
+
+    #[test]
+    fn test_veto_deny_perl_e() {
+        let engine = VetoEngine::with_defaults();
+        let context = ExecutionContext::for_command("perl -e 'system(\"ls\")'");
+        let decision = engine.check("perl -e 'system(\"ls\")'", &context).unwrap();
+        assert!(decision.is_denied());
     }
 
     #[test]

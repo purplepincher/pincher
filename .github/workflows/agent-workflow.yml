@@ -1,0 +1,128 @@
+# ======================================================================
+# L3 Agent Workflow — pincher
+# ======================================================================
+# Trigger pincher as an L3 agent via GitHub Actions.
+# Runs ephemerally in CI/CD to execute reflex engine tasks.
+#
+# USAGE:
+#   Actions → "Agent Task (Level-3)" → fill in agent_task + model
+# ======================================================================
+
+name: Agent Task (Level-3)
+
+on:
+  workflow_dispatch:
+    inputs:
+      agent_task:
+        description: 'Task for the agent to execute'
+        required: true
+        default: 'cargo run -- status'
+        type: string
+      agent_model:
+        description: 'Model to use for agent execution'
+        required: false
+        default: 'deepseek-ai/DeepSeek-V4-Flash'
+        type: string
+      output_format:
+        description: 'Output format (markdown, json, yaml)'
+        required: false
+        default: 'markdown'
+        type: choice
+        options:
+          - markdown
+          - json
+          - yaml
+      commit_results:
+        description: 'Commit results back to repo?'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+env:
+  CARGO_TERM_COLOR: always
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  DEEPINFRA_API_KEY: ${{ secrets.DEEPINFRA_API_KEY }}
+  DEEPINFRA_API_URL: https://api.deepinfra.com/v1
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+jobs:
+  execute-agent-task:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Agent Identity
+        run: |
+          echo "::group::Agent Identity"
+          echo "Repo: ${{ github.repository }}"
+          echo "Agent: pincher (L3 via CI/CD)"
+          echo "Agent Task: ${{ github.event.inputs.agent_task }}"
+          echo "Agent Model: ${{ github.event.inputs.agent_model }}"
+          echo "Run ID: ${{ github.run_id }}"
+          echo "::endgroup::"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache Rust builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Build (release)
+        run: |
+          echo "::group::Build"
+          cargo build --release 2>&1
+          echo "::endgroup::"
+
+      - name: Execute Agent Task
+        id: execute
+        run: |
+          echo "::group::Agent Task Output"
+          mkdir -p agent-output
+          OUTPUT_FILE="agent-output/result.${{ github.event.inputs.output_format == 'markdown' && 'md' || github.event.inputs.output_format }}"
+          eval '${{ github.event.inputs.agent_task }}' 2>&1 | tee "$OUTPUT_FILE"
+          echo "::endgroup::"
+
+      - name: Commit Results
+        if: ${{ github.event.inputs.commit_results == 'true' }}
+        run: |
+          echo "::group::Committing Results"
+          git config user.name "agent-bot"
+          git config user.email "agent-bot@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "agent: ${{ github.event.inputs.agent_task }} [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+            echo "Changes committed and pushed."
+          else
+            echo "No changes to commit."
+          fi
+          echo "::endgroup::"
+
+      - name: Upload Agent Output
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-output
+          path: agent-output/
+          retention-days: 7
+
+      - name: Summary
+        run: |
+          echo "## Agent Task Complete — pincher" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Task** | ${{ github.event.inputs.agent_task }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Model** | ${{ github.event.inputs.agent_model }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Run ID** | ${{ github.run_id }} |" >> $GITHUB_STEP_SUMMARY

@@ -76,8 +76,17 @@ pub enum EmbedderState {
 
 /// ONNX-based text embedder using all-MiniLM-L6-v2.
 ///
-/// If the ONNX model cannot be loaded, falls back to deterministic hash embeddings
-/// with a warning. This allows the system to function in degraded mode.
+/// ## Fallback Chain
+///
+/// 1. **ONNX model loaded** (best quality): Uses all-MiniLM-L6-v2 via ONNX Runtime.
+/// 2. **ONNX model missing or corrupted**: Falls back to deterministic SHA-256 trigram
+///    hash embeddings with a warning log. Embeddings remain 384-dimensional and
+///    deterministic (same input → same vector), so cosine-similarity matching still works.
+/// 3. **`onnx` feature disabled at compile time**: Same fallback as above, with a
+///    compile-time notice.
+///
+/// In all modes, the `cosine_similarity` function and `embed()` interface remain
+/// identical, ensuring the rest of the engine never sees a difference.
 pub struct Embedder {
     state: EmbedderState,
     #[cfg(feature = "onnx")]
@@ -301,6 +310,9 @@ impl Embedder {
     }
 
     /// Run the ONNX model inference for a single text.
+    ///
+    /// Catches runtime inference errors and returns them as `EmbedError::Ort`,
+    /// which the caller can use to decide whether to fall back.
     #[cfg(feature = "onnx")]
     fn embed_onnx(&self, session: &Session, text: &str) -> EmbedResult<Vec<f32>> {
         debug!(text_len = text.len(), "Running ONNX embedding inference");

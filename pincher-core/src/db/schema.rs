@@ -195,7 +195,7 @@ pub fn init_db(path: &Path) -> SqlResult<Connection> {
     register_sqlite_vec();
 
     let conn = Connection::open(path)?;
-    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000")?;
 
     run_migrations(&conn)?;
     seed_builtins(&conn)?;

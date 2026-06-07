@@ -12,12 +12,13 @@ use serde::Serialize;
 /// - On success, confidence increases by 5 % of the remaining gap toward 1.0.
 /// - On failure, confidence decreases by 10 % of the current value.
 ///
-/// The result is clamped to \[0.01, 0.99\].
+/// The result is clamped to \[0.05, 0.95\] to prevent runaway values
+/// and ensure a minimum confidence floor for learning.
 pub fn update_confidence(current: f64, success: bool) -> f64 {
     if success {
-        (current + 0.05 * (1.0 - current)).min(0.99)
+        (current + 0.05 * (1.0 - current)).min(0.95)
     } else {
-        (current - 0.10 * current).max(0.01)
+        (current - 0.10 * current).max(0.05)
     }
 }
 
@@ -82,12 +83,14 @@ mod tests {
     #[test]
     fn confidence_clamps_high() {
         let c = update_confidence(0.999, true);
-        assert!(c <= 0.99);
+        assert!(c <= 0.95);
+        assert!(c >= 0.05);
     }
 
     #[test]
     fn confidence_clamps_low() {
         let c = update_confidence(0.01, false);
-        assert!(c >= 0.01);
+        assert!(c >= 0.05);
+        assert!(c <= 0.95);
     }
 }
