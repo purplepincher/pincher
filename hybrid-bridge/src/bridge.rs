@@ -419,6 +419,7 @@ mod tests {
     use super::*;
     use crate::types::TernaryGate;
     use ndarray::array;
+    use std::f64::consts::FRAC_1_SQRT_2;
 
     fn sample_proposal(ticker: &str) -> RoomProposal {
         RoomProposal {
@@ -438,7 +439,7 @@ mod tests {
             tick,
             n_stocks: 3,
             eigenvalues: vec![0.95, 0.03, 0.02],
-            eigenvectors: array![[0.7071, 0.7071], [0.7071, -0.7071]],
+            eigenvectors: array![[FRAC_1_SQRT_2, FRAC_1_SQRT_2], [FRAC_1_SQRT_2, -FRAC_1_SQRT_2]],
             topologies: vec![],
             universe_betti: [3, 1, 0],
             regime: "stable".into(),

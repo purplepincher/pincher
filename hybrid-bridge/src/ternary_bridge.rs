@@ -199,7 +199,7 @@ impl TritMapping {
     }
 
     /// Create a new `TritMapping` with default hysteresis `[0.3, 0.7]`.
-    pub fn default() -> Self {
+    pub fn with_default_hysteresis() -> Self {
         Self::new(HysteresisConfig::default())
     }
 
@@ -468,9 +468,10 @@ impl PortfolioToTrits {
 ///   trits get positive weight at the `high` level, negative trits get negative
 ///   weight at the `low` level. This is useful when you want to preserve graph
 ///   direction but scale it by external conviction.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum WeightInterpolation {
     /// Direct linear mapping: `-1→-1.0, 0→0.0, +1→+1.0`
+    #[default]
     Linear,
     /// Confidence-scaled mapping with explicit high/low bounds.
     Confidence {
@@ -479,12 +480,6 @@ pub enum WeightInterpolation {
         /// Weight assigned to `Negative` trits (e.g. -0.60).
         low: f64,
     },
-}
-
-impl Default for WeightInterpolation {
-    fn default() -> Self {
-        Self::Linear
-    }
 }
 
 /// Converts ternary graph outputs (trit arrays and matrices) back into
@@ -951,7 +946,7 @@ pub fn trit_vector_to_gates(trits: &TritVector) -> Vec<TernaryGate> {
 
 /// Convert a slice of `TernaryGate` to a `TritVector`.
 pub fn gates_to_trit_vector(gates: &[TernaryGate]) -> TritVector {
-    let trits: Vec<Ternary> = gates.iter().map(|g| gate_to_ternary(g)).collect();
+    let trits: Vec<Ternary> = gates.iter().map(gate_to_ternary).collect();
     TritVector::new(&trits)
 }
 

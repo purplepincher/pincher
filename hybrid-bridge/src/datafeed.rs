@@ -87,6 +87,11 @@ pub trait MarketDataFeed: Send + Sync {
     /// Total number of ticks available in this feed (if known).
     fn len(&self) -> usize;
 
+    /// Whether this feed has no ticks.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Whether this feed has been fully consumed.
     fn is_exhausted(&self) -> bool;
 

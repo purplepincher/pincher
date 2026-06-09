@@ -27,9 +27,9 @@
 //!    large ticker counts.
 
 use hybrid_bridge::{
-    detect_non_finite, mask_non_finite, HybridBridge, HybridMessage, MatrixSnapshot,
-    PortfolioVector, RoomProposal, SaepAction, SaepConstraint, TernaryGate, Violation,
-    GovernanceLayer,
+    detect_non_finite, mask_non_finite, HybridBridge, HybridMessage, MatrixEngineTrait,
+    MatrixSnapshot, RoomAgentTrait, RoomProposal, SaepAction, SaepConstraint,
+    TernaryGate, VetoEngineTrait, Violation, GovernanceLayer,
 };
 use hybrid_bridge::mock_matrix::MockMatrixEngine;
 use hybrid_bridge::mock_room::MockRoomAgent;
@@ -447,7 +447,7 @@ fn test_e2e_latency_within_target() {
         }
         ps
     };
-    let room_elapsed = Instant::now() - start;
+    let _room_elapsed = Instant::now() - start;
 
     // Veto resolution
     let _portfolio = rt.block_on(veto.resolve(&proposals, None));
@@ -523,7 +523,9 @@ fn test_e2e_bridge_broadcast_cycle() {
 
 #[test]
 fn test_chaos_nan_in_matrix_triggers_detection() {
-    let engine = setup_matrix(&(0..10).map(|i| format!("T{}", i)).collect::<Vec<_>>(), 5, 100);
+    let tickers: Vec<String> = (0..10).map(|i| format!("T{}", i)).collect();
+    let ticker_refs: Vec<&str> = tickers.iter().map(|s| s.as_str()).collect();
+    let engine = setup_matrix(&ticker_refs, 5, 100);
     let rt = tokio::runtime::Runtime::new().unwrap();
 
     // Initially clean

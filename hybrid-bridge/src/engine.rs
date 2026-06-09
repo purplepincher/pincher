@@ -250,12 +250,12 @@ impl<M: MatrixEngine + 'static, V: VetoEngine + 'static> HybridEngineImpl<M, V> 
         let _metadata = self.matrix.fast_cycle(tick).await;
 
         // Medium cycle every N ticks.
-        if tick % self.config.medium_cycle_interval == 0 {
+        if tick.is_multiple_of(self.config.medium_cycle_interval) {
             let _partial = self.matrix.medium_cycle(tick).await;
         }
 
         // Full cycle every N ticks.
-        let snapshot = if tick % self.config.full_cycle_interval == 0 {
+        let snapshot = if tick.is_multiple_of(self.config.full_cycle_interval) {
             info!("Running full matrix cycle at tick {}", tick);
             self.matrix.full_cycle(tick).await
         } else {
@@ -302,7 +302,7 @@ impl<M: MatrixEngine + 'static, V: VetoEngine + 'static> HybridEngineImpl<M, V> 
         // For production, this would use a task pool; for the bridge layer,
         // sequential analysis is correct (rooms are pure computation, not I/O bound).
         let mut proposals = Vec::with_capacity(room_count);
-        for (_i, room) in rooms.iter().enumerate() {
+        for room in rooms.iter() {
             let _permit = self.room_semaphore.clone().acquire_owned().await;
             match _permit {
                 Ok(_lock) => {
@@ -504,6 +504,12 @@ pub struct DefaultVetoEngine {
     total_freezes: Arc<AtomicU64>,
 }
 
+impl Default for DefaultVetoEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DefaultVetoEngine {
     pub fn new() -> Self {
         Self {
@@ -629,7 +635,8 @@ impl VetoEngine for DefaultVetoEngine {
 
     async fn get_portfolio(&self) -> PortfolioVector {
         self.current_portfolio
-            .blocking_read()
+            .read()
+            .await
             .clone()
             .unwrap_or(PortfolioVector {
                 positions: vec![],

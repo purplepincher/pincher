@@ -6,6 +6,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Hybrid Manifold communication backbone — connects Matrix Engine, Room Agents, and Veto Engine"
+authors = ["SuperInstance <opensource@superinstance.ai>"]
 
 [dependencies]
 pincher-core = { path = "../pincher-core" }

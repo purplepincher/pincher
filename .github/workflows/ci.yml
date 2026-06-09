@@ -5,6 +5,17 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      agent_message:
+        description: 'Message from orchestrating agent'
+        required: false
+        type: string
+      run_tests:
+        description: 'Run full test suite'
+        required: false
+        default: true
+        type: boolean
 
 defaults:
   run:

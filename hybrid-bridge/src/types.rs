@@ -159,11 +159,14 @@ pub struct PortfolioVector {
     pub timestamp: u64,
 }
 
+/// Type alias for the SAEP constraint check function.
+pub type CheckFn = Arc<dyn Fn(&RoomProposal, &HashMap<String, f64>) -> Result<(), Violation> + Send + Sync>;
+
 /// A SAEP constraint pattern.
 pub struct SaepConstraint {
     pub id: String,
     pub layer: GovernanceLayer,
-    pub check_fn: Arc<dyn Fn(&RoomProposal, &HashMap<String, f64>) -> Result<(), Violation> + Send + Sync>,
+    pub check_fn: CheckFn,
     pub action: SaepAction,
     pub escalate_to: Option<GovernanceLayer>,
 }

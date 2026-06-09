@@ -33,7 +33,7 @@ fn test_cli_construction_with_custom_timeout() {
 #[test]
 fn test_cli_command_parser_status() {
     // Simulate command-line parsing: `hybrid status`
-    let cmd = HybridCliCommand::try_parse_from(&["hybrid", "status"])
+    let cmd = HybridCliCommand::try_parse_from(["hybrid", "status"])
         .expect("`hybrid status` should parse");
     assert!(matches!(cmd.command, HybridSubcommand::Status));
 }
@@ -41,7 +41,7 @@ fn test_cli_command_parser_status() {
 #[test]
 fn test_cli_command_parser_inject() {
     // `hybrid inject AAPL --features 0.1,0.5,-0.3`
-    let cmd = HybridCliCommand::try_parse_from(&[
+    let cmd = HybridCliCommand::try_parse_from([
         "hybrid", "inject",
         "AAPL",
         "--features", "0.1,0.5,-0.3",
@@ -59,7 +59,7 @@ fn test_cli_command_parser_inject() {
 #[test]
 fn test_cli_command_parser_inject_short_args() {
     // `hybrid inject AAPL -f 0.0,1.0,-1.0` with short form
-    let cmd = HybridCliCommand::try_parse_from(&[
+    let cmd = HybridCliCommand::try_parse_from([
         "hybrid", "inject",
         "AAPL",
         "-f", "0.0,1.0,-1.0",
@@ -77,12 +77,12 @@ fn test_cli_command_parser_inject_short_args() {
 #[test]
 fn test_cli_command_parser_snapshot() {
     // `hybrid snapshot`
-    let cmd = HybridCliCommand::try_parse_from(&["hybrid", "snapshot"])
+    let cmd = HybridCliCommand::try_parse_from(["hybrid", "snapshot"])
         .expect("`hybrid snapshot` should parse");
     assert!(matches!(cmd.command, HybridSubcommand::Snapshot { .. }));
 
     // `hybrid snapshot --timeout 30`
-    let cmd = HybridCliCommand::try_parse_from(&["hybrid", "snapshot", "--timeout", "30"])
+    let cmd = HybridCliCommand::try_parse_from(["hybrid", "snapshot", "--timeout", "30"])
         .expect("`hybrid snapshot --timeout 30` should parse");
     match cmd.command {
         HybridSubcommand::Snapshot { timeout } => {
@@ -92,7 +92,7 @@ fn test_cli_command_parser_snapshot() {
     }
 
     // `hybrid snapshot -t 5`
-    let cmd = HybridCliCommand::try_parse_from(&["hybrid", "snapshot", "-t", "5"])
+    let cmd = HybridCliCommand::try_parse_from(["hybrid", "snapshot", "-t", "5"])
         .expect("`hybrid snapshot -t 5` should parse");
     match cmd.command {
         HybridSubcommand::Snapshot { timeout } => {
@@ -105,7 +105,7 @@ fn test_cli_command_parser_snapshot() {
 #[test]
 fn test_cli_command_parser_propose() {
     // `hybrid propose AAPL bullish`
-    let cmd = HybridCliCommand::try_parse_from(&[
+    let cmd = HybridCliCommand::try_parse_from([
         "hybrid", "propose",
         "AAPL", "bullish",
     ])
@@ -122,7 +122,7 @@ fn test_cli_command_parser_propose() {
 #[test]
 fn test_cli_command_parser_propose_full() {
     // `hybrid propose TSLA bearish --conviction 0.6 --confidence 0.5`
-    let cmd = HybridCliCommand::try_parse_from(&[
+    let cmd = HybridCliCommand::try_parse_from([
         "hybrid", "propose",
         "TSLA", "bearish",
         "-w", "0.6",
@@ -148,7 +148,7 @@ fn test_cli_command_parser_propose_full() {
 #[test]
 fn test_cli_command_parser_freeze() {
     // `hybrid freeze "Market circuit breaker"`
-    let cmd = HybridCliCommand::try_parse_from(&[
+    let cmd = HybridCliCommand::try_parse_from([
         "hybrid", "freeze",
         "Market circuit breaker",
     ])
@@ -164,12 +164,12 @@ fn test_cli_command_parser_freeze() {
 #[test]
 fn test_cli_command_parser_unfreeze() {
     // `hybrid unfreeze`
-    let cmd = HybridCliCommand::try_parse_from(&["hybrid", "unfreeze"])
+    let cmd = HybridCliCommand::try_parse_from(["hybrid", "unfreeze"])
         .expect("`hybrid unfreeze` should parse");
     assert!(matches!(cmd.command, HybridSubcommand::Unfreeze { .. }));
 
     // `hybrid unfreeze "All clear"`
-    let cmd = HybridCliCommand::try_parse_from(&["hybrid", "unfreeze", "All clear"])
+    let cmd = HybridCliCommand::try_parse_from(["hybrid", "unfreeze", "All clear"])
         .expect("`hybrid unfreeze` with reason should parse");
     match cmd.command {
         HybridSubcommand::Unfreeze { reason } => {
@@ -448,7 +448,6 @@ async fn test_inject_negative_values() {
 // ─────────────────────────────────────────────────────────────────────
 
 use hybrid_bridge::HybridMessage;
-use ndarray;
 use hybrid_bridge::MatrixSnapshot;
 
 /// Create a minimal dummy snapshot for test use.

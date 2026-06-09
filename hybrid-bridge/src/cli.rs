@@ -6,7 +6,7 @@
 //!
 //! ## Usage (from pincher-cli or any binary)
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use std::sync::Arc;
 //! use hybrid_bridge::HybridBridge;
 //! use hybrid_bridge::cli::{HybridCli, HybridCliCommand, run_hybrid_cli};

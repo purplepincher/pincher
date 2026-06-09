@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 //! # Hybrid Bridge
 //!
 //! The communication backbone of the **Hybrid Manifold** — connecting the
@@ -58,14 +60,38 @@
 
 // ── Module declarations ──────────────────────────────────────────────
 
+/// Core `HybridBridge` — async broadcast/mpsc backbone connecting all layers.
 pub mod bridge;
+
+/// Chaos testing utilities — NaN/Inf injection, detection, and recovery.
 pub mod chaos;
+
+/// CLI front-end for inspecting and controlling the Hybrid Manifold.
 pub mod cli;
+
+/// Market data feed adapters (CSV, WebSocket, etc.) for matrix ingestion.
 pub mod datafeed;
+
+/// Engine traits (`MatrixEngine`, `RoomAgent`, `VetoEngine`, `HybridEngine`)
+/// and the concrete `HybridEngineImpl` orchestrator.
 pub mod engine;
+
+/// Error types for hybrid bridge operations.
 pub mod error;
+
+/// In-memory `Array3<f32>`-backed mock of the `MatrixEngine` trait.
 pub mod mock_matrix;
+
+/// Deterministic mock `RoomAgent` for integration testing.
+pub mod mock_room;
+
+/// Configurable mock `VetoEngine` with SAEP constraint support.
+pub mod mock_veto;
+
+/// Bridging layer between Hybrid Manifold and ternary-types ecosystem.
 pub mod ternary_bridge;
+
+/// Shared type definitions — topology, proposals, portfolios, tensor utilities.
 pub mod types;
 
 // ── Prelude ──────────────────────────────────────────────────────────
@@ -79,10 +105,13 @@ pub mod prelude {
     };
     pub use crate::datafeed::{CsvFileFeed, MarketDataFeed, StockTick};
     pub use crate::error::{HybridError, HybridResult};
+    pub use crate::mock_room::MockRoomAgent;
+    pub use crate::mock_veto::MockVetoEngine;
     pub use crate::types::{
-        detect_non_finite, mask_non_finite, FeatureSuggestion, FinalPosition, GovernanceLayer,
-        HybridMessage, MatrixMetadata, MatrixSnapshot, PartialSnapshot, PortfolioVector,
-        RoomProposal, SaepAction, SaepConstraint, TernaryGate, TopologicalSignature, Violation,
+        detect_non_finite, mask_non_finite, CheckFn, FeatureSuggestion, FinalPosition,
+        GovernanceLayer, HybridMessage, MatrixMetadata, MatrixSnapshot, PartialSnapshot,
+        PortfolioVector, RoomProposal, SaepAction, SaepConstraint, TernaryGate,
+        TopologicalSignature, Violation,
     };
 }
 
@@ -95,8 +124,10 @@ pub use engine::{
 };
 pub use datafeed::{CsvFileFeed, MarketDataFeed, StockTick};
 pub use error::{HybridError, HybridResult};
+pub use mock_room::MockRoomAgent;
+pub use mock_veto::MockVetoEngine;
 pub use types::{
-    detect_non_finite, mask_non_finite, FeatureSuggestion, FinalPosition, GovernanceLayer,
+    detect_non_finite, mask_non_finite, CheckFn, FeatureSuggestion, FinalPosition, GovernanceLayer,
     HybridMessage, MatrixSnapshot, PortfolioVector, RoomProposal, SaepAction, SaepConstraint,
     TernaryGate, TopologicalSignature, Violation,
 };
@@ -142,6 +173,8 @@ mod tests {
         fn _check11(_: prelude::SaepAction) {}
         fn _check12(_: prelude::Violation) {}
         fn _check13(_: prelude::HybridConfig) {}
+        fn _check14(_: prelude::MockRoomAgent) {}
+        fn _check15(_: prelude::MockVetoEngine) {}
     }
 
     /// Test the default veto engine is constructable from prelude.
