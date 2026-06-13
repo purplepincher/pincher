@@ -5,6 +5,6 @@
   "cold_age_days": 14,
   "build_dir": "target/",
   "cache_dirs": [],
-  "protect_venv": false,
+  "protect_venv": true,
   "git_gc": true
 }
