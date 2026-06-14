@@ -10,6 +10,7 @@ pub mod dynamics;
 pub mod embed;
 pub mod immunology;
 pub mod intent;
+pub mod kernel;
 pub mod migration;
 pub mod reflex;
 pub mod resource;
