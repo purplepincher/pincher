@@ -18,7 +18,9 @@ use std::sync::Arc;
 #[cfg(feature = "onnx")]
 use ndarray::Array2;
 #[cfg(feature = "onnx")]
-use ort::session::Session;
+use ort::prelude::*;
+#[cfg(feature = "onnx")]
+use ort::session::{builder::GraphOptimizationLevel, Session};
 #[cfg(feature = "onnx")]
 use ort::value::Value;
 
@@ -40,7 +42,7 @@ pub const DEFAULT_MODEL_FILENAME: &str = "all-MiniLM-L6-v2-int8.onnx";
 pub enum EmbedError {
     #[error("ONNX Runtime error: {0}")]
     #[cfg(feature = "onnx")]
-    Ort(#[from] ort::Error),
+    Ort(#[from] ort::Error<()>),
 
     #[error("ONNX Runtime not available (compile with --features onnx)")]
     OrtNotAvailable,
@@ -271,9 +273,12 @@ impl Embedder {
     /// Load the ONNX session from a file path.
     #[cfg(feature = "onnx")]
     fn load_model(path: &Path) -> EmbedResult<Session> {
-        let session = Session::builder()?
-            .with_optimization_level(ort::session::GraphOptimizationLevel::Level3)?
-            .with_intra_threads(2)?
+        let session = Session::builder()
+            .map_err(|e: ort::Error<()>| EmbedError::Ort(e))?
+            .with_optimization_level(GraphOptimizationLevel::Level3)
+            .map_err(|e| EmbedError::Ort(e.into()))?
+            .with_intra_threads(2)
+            .map_err(|e| EmbedError::Ort(ort::Error::<()>::from(e)))?
             .commit_from_file(path)?;
         Ok(session)
     }

@@ -1797,7 +1797,7 @@ dependencies = [
  "chrono",
  "gethostname",
  "landlock",
- "ndarray 0.16.1",
+ "ndarray 0.17.2",
  "ort",
  "regex",
  "rusqlite",
