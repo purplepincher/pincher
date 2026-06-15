@@ -18,7 +18,7 @@ use std::sync::Arc;
 #[cfg(feature = "onnx")]
 use ndarray::Array2;
 #[cfg(feature = "onnx")]
-use ort::prelude::*;
+use std::sync::Mutex;
 #[cfg(feature = "onnx")]
 use ort::session::{builder::GraphOptimizationLevel, Session};
 #[cfg(feature = "onnx")]
@@ -71,7 +71,7 @@ pub type EmbedResult<T> = Result<T, EmbedError>;
 pub enum EmbedderState {
     /// ONNX model is loaded and ready.
     #[cfg(feature = "onnx")]
-    Loaded(Arc<Session>),
+    Loaded(Arc<Mutex<Session>>),
     /// Fallback mode: model not available, using deterministic hash embeddings.
     Fallback,
 }
@@ -223,7 +223,7 @@ impl Embedder {
                         Ok(session) => {
                             info!("ONNX model loaded successfully");
                             Ok(Self {
-                                state: EmbedderState::Loaded(Arc::new(session)),
+                                state: EmbedderState::Loaded(Arc::new(Mutex::new(session))),
                                 tokenizer,
                             })
                         }
@@ -297,7 +297,12 @@ impl Embedder {
     pub fn embed(&self, text: &str) -> EmbedResult<Vec<f32>> {
         match &self.state {
             #[cfg(feature = "onnx")]
-            EmbedderState::Loaded(session) => self.embed_onnx(session, text),
+            EmbedderState::Loaded(session) => {
+                let mut session_guard = session.lock().map_err(|e| {
+                    EmbedError::Ort(ort::Error::<()>::new(format!("Mutex lock failed: {}", e)))
+                })?;
+                self.embed_onnx(&mut *session_guard, text)
+            }
             EmbedderState::Fallback => {
                 debug!(
                     text_preview = &text[..text.len().min(50)],
@@ -319,7 +324,7 @@ impl Embedder {
     /// Catches runtime inference errors and returns them as `EmbedError::Ort`,
     /// which the caller can use to decide whether to fall back.
     #[cfg(feature = "onnx")]
-    fn embed_onnx(&self, session: &Session, text: &str) -> EmbedResult<Vec<f32>> {
+    fn embed_onnx(&self, session: &mut Session, text: &str) -> EmbedResult<Vec<f32>> {
         debug!(text_len = text.len(), "Running ONNX embedding inference");
 
         let tokens = self.tokenizer.tokenize(text);
@@ -333,7 +338,7 @@ impl Embedder {
         )?;
 
         let attention_mask_tensor = Value::from_array(
-            Array2::from_shape_vec((1, seq_len), tokens.attention_mask).map_err(|e| {
+            Array2::from_shape_vec((1, seq_len), tokens.attention_mask.clone()).map_err(|e| {
                 EmbedError::Tokenization(format!("Failed to create attention_mask tensor: {}", e))
             })?,
         )?;
@@ -349,17 +354,18 @@ impl Embedder {
             input_ids_tensor,
             attention_mask_tensor,
             token_type_ids_tensor,
-        ]?)?;
+        ])?;
 
         // Extract the last_hidden_state output (index 0)
-        let output = outputs[0].try_extract_tensor::<f32>()?;
+        // try_extract_tensor returns (&Shape, &[T])
+        let (shape, data) = outputs[0].try_extract_tensor::<f32>()?;
 
         // Mean pooling over sequence dimension: output shape is [1, seq_len, 384]
-        let shape = output.shape();
-        if shape.len() != 3 || shape[2] != EMBEDDING_DIM {
+        // shape derefs to [i64]
+        if shape.len() != 3 || shape[2] as usize != EMBEDDING_DIM {
             return Err(EmbedError::DimensionMismatch {
                 expected: EMBEDDING_DIM,
-                actual: if shape.len() == 3 { shape[2] } else { 0 },
+                actual: if shape.len() == 3 { shape[2] as usize } else { 0 },
             });
         }
 
@@ -370,7 +376,9 @@ impl Embedder {
         let mut pooled = vec![0.0f32; EMBEDDING_DIM];
         for (t, &weight) in attention_weights.iter().enumerate() {
             for d in 0..EMBEDDING_DIM {
-                pooled[d] += output[[0, t, d]] * weight;
+                // data is flat [f32]; index = t * embedding_dim + d
+                // (batch dimension is 1, so [0, t, d] -> t * shape[2] + d)
+                pooled[d] += data[t * EMBEDDING_DIM + d] * weight;
             }
         }
 
