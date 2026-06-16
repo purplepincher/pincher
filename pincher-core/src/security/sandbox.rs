@@ -386,33 +386,52 @@ fn execute_with_landlock(
 
 #[cfg(feature = "landlock")]
 fn apply_landlock_rules(rules: &[LandlockRule]) -> SandboxResult<()> {
-    use landlock::{Access, AccessFs, Ruleset, RulesetAttr, RulesetCreated, RulesetStatus};
+    use landlock::{ABI, Access, AccessFs, Ruleset, RulesetAttr, RulesetCreated, RulesetCreatedAttr, RulesetStatus, PathBeneath, PathFd};
 
-    let access_fs = AccessFs::from_all(Access::all());
-    let mut ruleset = Ruleset::new()
+    // #fix: from_all() takes ABI enum via Access trait; use V7 for latest features.
+    let access_fs = <AccessFs as Access>::from_all(ABI::V7);
+    // #fix: Chain is Ruleset::new() -> handle_access -> create() -> RulesetCreated -> add_rule -> restrict_self
+    let mut ruleset_created = Ruleset::new()
         .handle_access(access_fs)
+        .map_err(|e| SandboxError::Landlock(format!("Failed to handle access: {}", e)))?;
+
+    // #fix: create RulesetCreated before adding rules
+    let mut ruleset_created = ruleset_created
+        .create()
         .map_err(|e| SandboxError::Landlock(format!("Failed to create ruleset: {}", e)))?;
 
     for rule in rules {
         let path = PathBuf::from(&rule.path);
         if path.exists() {
             let access = match rule.access.as_str() {
-                "read" => AccessFs::from_read(Access::all()),
-                "write" => AccessFs::from_write(Access::all()),
-                "readwrite" => AccessFs::from_all(Access::all()),
-                "execute" => AccessFs::from_execute(Access::all()),
-                _ => AccessFs::from_read(Access::all()),
+                "read" => AccessFs::from_read(ABI::V7),
+                "write" => AccessFs::from_write(ABI::V7),
+                "readwrite" => <AccessFs as Access>::from_all(ABI::V7),
+                // #fix: from_execute() does not exist; use from_read and mask Execute bit
+                "execute" => {
+                    let mut flags = AccessFs::from_read(ABI::V7);
+                    flags |= AccessFs::Execute;
+                    flags
+                },
+                _ => AccessFs::from_read(ABI::V7),
             };
 
-            ruleset = ruleset.add_rule(landlock::PathBeneath::new(&path, access));
+            // #fix: PathBeneath::new() requires PathFd wrapper for parent directory fd
+            if let Ok(pfd) = PathFd::new(&path) {
+                // #fix: add_rule is on RulesetCreated via RulesetCreatedAttr
+                ruleset_created = ruleset_created
+                    .add_rule(PathBeneath::new(pfd, access))
+                    .map_err(|e| SandboxError::Landlock(format!("Failed to add rule: {}", e)))?;
+            }
         }
     }
 
-    let status = ruleset
+    // #fix: restrict_self is on RulesetCreated, not Ruleset
+    let status = ruleset_created
         .restrict_self()
         .map_err(|e| SandboxError::Landlock(format!("Failed to restrict self: {}", e)))?;
 
-    match status {
+    match status.ruleset {
         RulesetStatus::FullyEnforced => {
             info!("Landlock fully enforced");
         }

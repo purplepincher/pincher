@@ -371,11 +371,12 @@ impl GuestConfig {
     pub fn to_wasmtime_config(&self) -> wasmtime::Config {
         let mut config = wasmtime::Config::new();
 
-        // Use the Cranelift compiler (required by our Cargo.toml feature).
-        config.cranelift();
+        // #fix: cranelift() removed in wasmtime v28+; Cranelift is now the default backend.
+        // config.cranelift();
 
         // Memory limits.
-        let memory_pages = (self.memory_limit / wasmtime::WASM_PAGE_SIZE as u64) as u64;
+        // #fix: WASM_PAGE_SIZE removed in wasmtime v28+; hardcode 65536 bytes per page.
+        let memory_pages = (self.memory_limit / 65536u64) as u64;
         config.max_wasm_stack(self.max_wasm_stack);
 
         // Epoch-based interruption for timeout enforcement.
