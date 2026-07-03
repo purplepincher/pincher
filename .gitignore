@@ -32,3 +32,4 @@ reflexes.db
 
 # ONNX model cache
 models/
+.aider*

@@ -26,7 +26,7 @@ session:
 
 persist_targets:
   - "MEMORY.md"
-  - "GitHub SuperInstance/pincher"
+  - "GitHub purplepincher/pincher"
   - "workspace/i2i-vessel/"
 EOF
 

@@ -121,5 +121,5 @@ This repo includes a `.devcontainer/` with Rust toolchain pre-installed. Open in
 
 ```bash
 # Open in codespace
-gh codespace create --repo SuperInstance/pincher
+gh codespace create --repo purplepincher/pincher
 ```

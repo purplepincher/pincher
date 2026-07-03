@@ -28,7 +28,7 @@ The `.nail` file is the bridge between the two phases. It carries everything the
 ### Build PincherOS
 
 ```bash
-git clone https://github.com/SuperInstance/pincher.git
+git clone https://github.com/purplepincher/pincher.git
 cd pincher
 cargo build --release
 ```
@@ -176,7 +176,7 @@ If the target is a cloud VM, you can either build from source or cross-compile:
 ```bash
 # Option A: Build on the VM
 ssh deploy@prod-server
-git clone https://github.com/SuperInstance/pincher.git
+git clone https://github.com/purplepincher/pincher.git
 cd pincher && cargo build --release
 
 # Option B: Cross-compile on your workstation

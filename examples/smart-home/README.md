@@ -36,7 +36,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source "$HOME/.cargo/env"
 
 # Clone and build
-git clone https://github.com/SuperInstance/pincher.git
+git clone https://github.com/purplepincher/pincher.git
 cd pincher
 cargo build --release
 

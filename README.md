@@ -180,13 +180,13 @@ Same crab. Bigger shell.
 
 ```bash
 # Build from source
-git clone https://github.com/SuperInstance/pincher.git
+git clone https://github.com/purplepincher/pincher.git
 cd pincher
 cargo build --release -p pincher-cli
 cp target/release/pincher ~/.local/bin/
 
 # Or one-line install
-curl -fsSL https://raw.githubusercontent.com/SuperInstance/pincher/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/purplepincher/pincher/main/install.sh | bash
 ```
 
 First five minutes:

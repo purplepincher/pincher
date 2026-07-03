@@ -1,6 +1,6 @@
 # Ensign Pincher — pincher
 
-**Repo:** SuperInstance/pincher
+**Repo:** purplepincher/pincher
 
 ## Who I Am
 

@@ -6,7 +6,7 @@
 set -euo pipefail
 
 FLEET_REPOS=(
-    "SuperInstance/pincher"
+    "purplepincher/pincher"
     "SuperInstance/Mycelium"
     "SuperInstance/sunset-ecosystem"
     "SuperInstance/polln"

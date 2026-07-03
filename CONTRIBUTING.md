@@ -10,7 +10,7 @@ Be respectful. Be constructive. Be patient.
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/SuperInstance/pincher.git
+git clone https://github.com/purplepincher/pincher.git
 cd pincher
 
 # 2. Build
