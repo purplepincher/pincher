@@ -72,7 +72,7 @@ The root `README.md` describes the workspace as "two crates" (`pincher-core` and
 | Name availability | ⚠️ needs human verification | `hybrid-bridge` must be checked on crates.io |
 | Publish intent | ⚠️ open question | The root README describes the workspace as two crates and does not list `hybrid-bridge` as a published library (`README.md:113-117`). Its API docs (`hybrid-bridge/API.md`) present it as a reusable crate, but it may be intended as an internal component. Decide whether to publish it or leave it workspace-only. |
 | Git dependencies | 🔴 needs fix | `ternary-types` is inherited from workspace (`hybrid-bridge/Cargo.toml:16` → `Cargo.toml:27`). Same blocker as `pincher-core`: must be on crates.io before publishing. |
-| Dev-only code in public API | 🔴 needs fix | `hybrid-bridge/src/lib.rs` publicly exposes testing/mock modules without a feature gate: `chaos` (`lib.rs:67`), `mock_matrix` (`lib.rs:83`), `mock_room` (`lib.rs:86`), and `mock_veto` (`lib.rs:89`). These should be gated with `#[cfg(test)]` or a dedicated feature flag (e.g., `mocks`) before publishing, otherwise they become part of the stable public API. |
+| Dev-only code in public API | ✅ resolved | Mock/chaos modules (`chaos`, `mock_matrix`, `mock_room`, `mock_veto`) and their `MockRoomAgent`/`MockVetoEngine` re-exports are now gated behind `#[cfg(any(test, feature = "mocks"))]` in `hybrid-bridge/src/lib.rs`. The non-default `mocks` feature is auto-enabled only for this crate's own test suite via a `[dev-dependencies]` self-reference, so a plain `cargo add hybrid-bridge` no longer pulls the testing modules into the public API. See `docs/prep-notes/mock-feature-gate-verification-trace.md`. |
 
 ---
 
@@ -91,7 +91,7 @@ The root `README.md` describes the workspace as "two crates" (`pincher-core` and
 2. **CLI package naming:** Decide whether `pincher-cli` is the intended package name or whether the package should be renamed to `pincher` to match `cargo install pincher` in the README.
 3. **External dependencies:** Publish or vendor `ternary-types` and `silo-core` to crates.io, or replace the git dependencies with versioned registry dependencies.
 4. **Dead code / secrets:** Remove or refactor `pincher-core/src/daemon.rs`, `registry.rs`, and `updater.rs`; in particular replace the hardcoded `SUPER_INSTANCE_SHARED_SECRET_KEY_FOR_NAIL_INTEGRITY` with runtime configuration.
-5. **`hybrid-bridge` scope:** Decide whether `hybrid-bridge` is meant to be a public crate. If yes, gate the mock/chaos modules behind `#[cfg(test)]` or a feature flag before publishing.
+5. **`hybrid-bridge` scope:** Decide whether `hybrid-bridge` is meant to be a public crate. The mock/chaos dev-only modules are now feature-gated behind the non-default `mocks` feature (see the `hybrid-bridge` table above), so that specific blocker is resolved; the remaining open question is purely whether to publish the crate at all.
 
 ---
 
