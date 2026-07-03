@@ -7,7 +7,10 @@ pub mod sandbox;
 pub mod veto;
 
 // Re-export key types from veto
-pub use veto::{ExecutionContext, VetoDecision, VetoEngine, VetoError, VetoResult, VetoRule};
+pub use veto::{
+    ExecutionContext, RuleBasedVetoPolicy, VetoDecision, VetoEngine, VetoError, VetoPolicy,
+    VetoResult, VetoRule,
+};
 
 // Re-export key types from sandbox
 pub use sandbox::{

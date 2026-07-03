@@ -2,8 +2,24 @@
 //!
 //! The veto engine provides a safety layer that inspects actions before
 //! execution and can deny or require confirmation for dangerous operations.
-//! This is the MVP implementation — rules are loaded from a TOML config
-//! and evaluated deterministically.
+//!
+//! ## Architecture
+//!
+//! The decision logic is expressed as the pluggable [`VetoPolicy`] trait.
+//! The engine ([`VetoEngine`]) is a thin dispatcher that delegates the
+//! allow/deny/confirm decision to whichever policy it holds. The historical
+//! rule-based behavior — the TOML-configured [`VetoRule`] list — lives on as
+//! [`RuleBasedVetoPolicy`], which is the **default** policy. A downstream
+//! consumer (this org, or anyone forking pincher) can therefore swap in a
+//! custom policy by implementing [`VetoPolicy`] and constructing the engine
+//! with [`VetoEngine::with_policy`], without modifying the engine's dispatch
+//! code.
+//!
+//! Backward compatibility: a bare `VetoEngine` still defaults to the
+//! rule-based policy and exposes the same rule-management surface
+//! (`new`, `with_defaults`, `load_rules`, `save_rules`, `add_rule`,
+//! `rule_count`) it always did, so every existing call site and test
+//! continues to compile and behave identically.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -169,21 +185,66 @@ impl ExecutionContext {
     }
 }
 
-/// The veto engine that evaluates actions against rules.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VetoEngine {
-    /// The list of veto rules to evaluate.
+// ─────────────────────────────────────────────────────────────────────
+// Pluggable policy trait
+// ─────────────────────────────────────────────────────────────────────
+
+/// A pluggable veto policy.
+///
+/// A policy answers one question: given an `action` and its
+/// [`ExecutionContext`], should the action be [`VetoDecision::Allow`]ed,
+/// [`VetoDecision::Deny`]ied, or [`VetoDecision::RequireConfirmation`]?
+///
+/// The historical, deterministic rule-based behavior of pincher is provided
+/// out of the box by [`RuleBasedVetoPolicy`], which the default
+/// [`VetoEngine`] uses. Implement this trait to supply a different policy
+/// (e.g. one that consults an external allowlist, an audit log, or an LLM
+/// confirmation step) and feed it to [`VetoEngine::with_policy`]; the
+/// engine's dispatch code does not need to change.
+///
+/// The `Debug + Send + Sync` supertraits mirror the conventions used for
+/// engine traits elsewhere in this codebase (see `hybrid_bridge::engine`)
+/// and keep policies usable across threads / as `Box<dyn VetoPolicy>`.
+pub trait VetoPolicy: std::fmt::Debug + Send + Sync {
+    /// Evaluate the policy for the given action and context.
+    fn evaluate(&self, action: &str, context: &ExecutionContext) -> VetoResult<VetoDecision>;
+}
+
+// Blanket impl so that `Box<dyn VetoPolicy>` (and any boxed policy) is itself
+// a `VetoPolicy`. This lets callers that want *runtime* polymorphism build a
+// `VetoEngine<Box<dyn VetoPolicy>>` and swap policies at runtime, while static
+// callers use `VetoEngine<MyPolicy>` directly.
+impl<P: VetoPolicy + ?Sized> VetoPolicy for Box<P> {
+    fn evaluate(&self, action: &str, context: &ExecutionContext) -> VetoResult<VetoDecision> {
+        (**self).evaluate(action, context)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Default policy: the rule-based engine
+// ─────────────────────────────────────────────────────────────────────
+
+/// The default veto policy: a deterministic, ordered list of [`VetoRule`]s.
+///
+/// This is exactly the behavior pincher shipped before the policy trait was
+/// extracted — it is now simply expressed as *one* (default) implementation
+/// of [`VetoPolicy`] rather than being baked into the engine. Rules are
+/// evaluated in registration order and the first non-[`VetoDecision::Allow`]
+/// decision wins.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct RuleBasedVetoPolicy {
+    /// The ordered list of veto rules to evaluate.
     pub rules: Vec<VetoRule>,
 }
 
-impl VetoEngine {
-    /// Create a new empty veto engine.
+impl RuleBasedVetoPolicy {
+    /// Create a new empty rule-based policy.
     pub fn new() -> Self {
         Self { rules: Vec::new() }
     }
 
-    /// Create a veto engine with the default safety rules.
-    pub fn with_defaults() -> Self {
+    /// Create a rule-based policy seeded with the default safety rules.
+    pub fn with_default_rules() -> Self {
         Self {
             rules: default_veto_rules(),
         }
@@ -217,35 +278,23 @@ impl VetoEngine {
         Ok(())
     }
 
-    /// Add a rule to the engine.
+    /// Add a rule to the policy.
     pub fn add_rule(&mut self, rule: VetoRule) {
         self.rules.push(rule);
     }
 
-    /// Check an action against all veto rules.
-    #[instrument(skip(self, context))]
-    pub fn check(&self, action: &str, context: &ExecutionContext) -> VetoResult<VetoDecision> {
-        debug!(action = action, "Checking action against veto rules");
-
-        for rule in &self.rules {
-            let decision = self.evaluate_rule(rule, action, context)?;
-            if !decision.is_allowed() {
-                info!(
-                    action = action,
-                    decision = ?decision,
-                    "Action vetoed by rule"
-                );
-                return Ok(decision);
-            }
-        }
-
-        debug!(action = action, "Action allowed by all rules");
-        Ok(VetoDecision::Allow)
+    /// Get the number of rules.
+    pub fn rule_count(&self) -> usize {
+        self.rules.len()
     }
 
     /// Evaluate a single rule against an action.
+    ///
+    /// Factored out as a standalone helper (operating on an explicit rule
+    /// reference) so that custom policies may reuse the per-rule semantics
+    /// of the default policy when building their own rule sets, without
+    /// having to re-implement the [`VetoRule`] matching.
     fn evaluate_rule(
-        &self,
         rule: &VetoRule,
         action: &str,
         context: &ExecutionContext,
@@ -317,14 +366,153 @@ impl VetoEngine {
 
         Ok(VetoDecision::Allow)
     }
+}
 
-    /// Get the number of rules.
-    pub fn rule_count(&self) -> usize {
-        self.rules.len()
+impl VetoPolicy for RuleBasedVetoPolicy {
+    fn evaluate(&self, action: &str, context: &ExecutionContext) -> VetoResult<VetoDecision> {
+        debug!(action = action, "Checking action against veto rules");
+
+        for rule in &self.rules {
+            let decision = Self::evaluate_rule(rule, action, context)?;
+            if !decision.is_allowed() {
+                info!(
+                    action = action,
+                    decision = ?decision,
+                    "Action vetoed by rule"
+                );
+                return Ok(decision);
+            }
+        }
+
+        debug!(action = action, "Action allowed by all rules");
+        Ok(VetoDecision::Allow)
     }
 }
 
-impl Default for VetoEngine {
+// ─────────────────────────────────────────────────────────────────────
+// VetoEngine — the dispatcher
+// ─────────────────────────────────────────────────────────────────────
+
+/// The veto engine that evaluates actions against a [`VetoPolicy`].
+///
+/// `VetoEngine` is a thin dispatcher: [`VetoEngine::check`] delegates to the
+/// held policy's [`VetoPolicy::evaluate`]. The default type parameter keeps
+/// every historical call site working unchanged — a bare `VetoEngine` is a
+/// `VetoEngine<RuleBasedVetoPolicy>`, so `VetoEngine::with_defaults()` /
+/// `VetoEngine::default()` / `VetoEngine::new()` all yield the exact
+/// rule-based engine that existed before this trait extraction.
+///
+/// To plug in a custom policy, construct the engine with
+/// [`VetoEngine::with_policy`]:
+///
+/// ```ignore
+/// let engine = VetoEngine::with_policy(MyCustomPolicy);
+/// ```
+///
+/// The rule-management helpers (`add_rule`, `rule_count`, `save_rules`,
+/// `load_rules`) are only available on `VetoEngine<RuleBasedVetoPolicy>`,
+/// since they are meaningless for an arbitrary policy.
+///
+/// # API change (backward-incompatible, but unused in practice)
+///
+/// Prior to this refactor `VetoEngine` derived `Serialize`/`Deserialize`.
+/// That derive was never exercised — rule persistence has always gone through
+/// [`RuleBasedVetoPolicy::save_rules`] / [`RuleBasedVetoPolicy::load_rules`]
+/// via the [`VetoConfig`] TOML shape. Because the engine is now generic over
+/// `P`, the derive no longer applies and has been removed. The serializable
+/// representation of the default policy's data is unchanged and remains
+/// available through `save_rules`/`load_rules` (and `RuleBasedVetoPolicy`
+/// itself still derives `Serialize`/`Deserialize`).
+#[derive(Debug, Clone)]
+pub struct VetoEngine<P: VetoPolicy = RuleBasedVetoPolicy> {
+    /// The policy this engine delegates [`VetoEngine::check`] to.
+    policy: P,
+}
+
+/// Engine functionality available for *any* policy.
+impl<P: VetoPolicy> VetoEngine<P> {
+    /// Build an engine around an arbitrary policy.
+    ///
+    /// This is the extension point: implement [`VetoPolicy`] and pass an
+    /// instance here to change how pincher decides allow/deny/confirm without
+    /// touching the engine's dispatch code.
+    pub fn with_policy(policy: P) -> Self {
+        Self { policy }
+    }
+
+    /// Check an action against the configured policy.
+    ///
+    /// This is a pure delegation to [`VetoPolicy::evaluate`]; all decision
+    /// logic lives in the policy. The `#[instrument]` span and the
+    /// delegation log line are preserved for observability continuity.
+    #[instrument(skip(self, context))]
+    pub fn check(&self, action: &str, context: &ExecutionContext) -> VetoResult<VetoDecision> {
+        debug!(action = action, "Delegating action to veto policy");
+        self.policy.evaluate(action, context)
+    }
+
+    /// Borrow the underlying policy.
+    pub fn policy(&self) -> &P {
+        &self.policy
+    }
+}
+
+/// Rule-management surface, only meaningful for the default rule-based policy.
+///
+/// These mirror the pre-refactor `VetoEngine` API exactly and delegate to the
+/// underlying [`RuleBasedVetoPolicy`], preserving all existing behavior.
+impl VetoEngine<RuleBasedVetoPolicy> {
+    /// Create a new empty veto engine (no rules).
+    pub fn new() -> Self {
+        Self {
+            policy: RuleBasedVetoPolicy::new(),
+        }
+    }
+
+    /// Create a veto engine with the default safety rules.
+    pub fn with_defaults() -> Self {
+        Self {
+            policy: RuleBasedVetoPolicy::with_default_rules(),
+        }
+    }
+
+    /// Load veto rules from a TOML configuration file.
+    pub fn load_rules(path: &Path) -> VetoResult<Self> {
+        let policy = RuleBasedVetoPolicy::load_rules(path)?;
+        Ok(Self { policy })
+    }
+
+    /// Save the current rules to a TOML configuration file.
+    pub fn save_rules(&self, path: &Path) -> VetoResult<()> {
+        self.policy.save_rules(path)
+    }
+
+    /// Add a rule to the engine.
+    pub fn add_rule(&mut self, rule: VetoRule) {
+        self.policy.add_rule(rule);
+    }
+
+    /// Get the number of rules.
+    pub fn rule_count(&self) -> usize {
+        self.policy.rule_count()
+    }
+
+    /// Borrow the engine's rule list.
+    ///
+    /// This replaces the historical public `rules` field (which was only ever
+    /// read internally). The rules now live on the policy; this accessor keeps
+    /// read-only inspection of them available on the default engine.
+    pub fn rules(&self) -> &[VetoRule] {
+        &self.policy.rules
+    }
+
+    /// Borrow the underlying rule-based policy.
+    pub fn rule_policy(&self) -> &RuleBasedVetoPolicy {
+        &self.policy
+    }
+}
+
+impl Default for VetoEngine<RuleBasedVetoPolicy> {
     fn default() -> Self {
         Self::with_defaults()
     }
@@ -434,6 +622,11 @@ fn default_veto_rules() -> Vec<VetoRule> {
         },
     ]
 }
+
+// Silence the unused `warn` import: it was present in the pre-refactor module
+// (preserved here verbatim) but is not currently emitted from this file.
+#[allow(unused_imports)]
+use warn as _allow_warn_import;
 
 #[cfg(test)]
 mod tests {
@@ -575,5 +768,82 @@ mod tests {
         assert_eq!(ctx.action, "test");
         assert!(ctx.capabilities.contains("network"));
         assert!(ctx.paths.contains(&"/tmp/test".to_string()));
+    }
+
+    // ── Tests for the new trait surface ───────────────────────────────
+
+    #[test]
+    fn test_custom_veto_policy_is_used_by_engine() {
+        // A trivial policy that denies everything starting with "X ".
+        #[derive(Debug)]
+        struct DenyX;
+
+        impl VetoPolicy for DenyX {
+            fn evaluate(
+                &self,
+                action: &str,
+                _context: &ExecutionContext,
+            ) -> VetoResult<VetoDecision> {
+                if action.starts_with("X ") {
+                    Ok(VetoDecision::Deny("denied by DenyX".to_string()))
+                } else {
+                    Ok(VetoDecision::Allow)
+                }
+            }
+        }
+
+        let engine = VetoEngine::with_policy(DenyX);
+        let ctx = ExecutionContext::for_command("X dangerous");
+        assert!(engine.check("X dangerous", &ctx).unwrap().is_denied());
+        let ctx2 = ExecutionContext::for_command("ls");
+        assert!(engine.check("ls", &ctx2).unwrap().is_allowed());
+    }
+
+    #[test]
+    fn test_boxed_policy_runtime_swap() {
+        #[derive(Debug)]
+        struct AlwaysDeny;
+        impl VetoPolicy for AlwaysDeny {
+            fn evaluate(&self, _: &str, _: &ExecutionContext) -> VetoResult<VetoDecision> {
+                Ok(VetoDecision::Deny("always".to_string()))
+            }
+        }
+
+        // Runtime-polymorphic engine via the blanket `Box<dyn VetoPolicy>: VetoPolicy` impl.
+        let boxed: Box<dyn VetoPolicy> = Box::new(AlwaysDeny);
+        let engine: VetoEngine<Box<dyn VetoPolicy>> = VetoEngine::with_policy(boxed);
+        let ctx = ExecutionContext::for_command("anything");
+        assert!(engine.check("anything", &ctx).unwrap().is_denied());
+    }
+
+    #[test]
+    fn test_rule_based_policy_implements_trait_and_matches_engine() {
+        // The default policy on its own (as a VetoPolicy) must reproduce what
+        // the engine returns — proving the engine is a pure delegation.
+        let policy = RuleBasedVetoPolicy::with_default_rules();
+        let engine = VetoEngine::with_defaults();
+
+        for action in &[
+            "rm -rf /",
+            "ls -la",
+            "curl http://example.com",
+            "eval \"x\"",
+        ] {
+            let ctx = ExecutionContext::for_command(action);
+            let from_policy = policy.evaluate(action, &ctx).unwrap();
+            let from_engine = engine.check(action, &ctx).unwrap();
+            assert_eq!(
+                from_policy.is_allowed(),
+                from_engine.is_allowed(),
+                "policy/engine mismatch on {:?}",
+                action
+            );
+            assert_eq!(
+                from_policy.is_denied(),
+                from_engine.is_denied(),
+                "policy/engine mismatch on {:?}",
+                action
+            );
+        }
     }
 }
