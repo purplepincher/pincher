@@ -9,9 +9,13 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
+authors = ["SuperInstance <opensource@superinstance.ai>"]
 license = "MIT OR Apache-2.0"
+description = "PincherOS reflex engine — fast intent-to-action shell for AI agents"
 repository = "https://github.com/purplepincher/pincher"
 homepage = "https://github.com/purplepincher/pincher"
+readme = "README.md"
+keywords = ["reflex", "agent", "shell", "pincher", "embedding"]
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }

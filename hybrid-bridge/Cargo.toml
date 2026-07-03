@@ -1,15 +1,18 @@
 [package]
 name = "hybrid-bridge"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
 license.workspace = true
+description = "Hybrid Manifold communication backbone — connects Matrix Engine, Room Agents, and Veto Engine"
 repository.workspace = true
 homepage.workspace = true
-description = "Hybrid Manifold communication backbone — connects Matrix Engine, Room Agents, and Veto Engine"
-authors = ["SuperInstance <opensource@superinstance.ai>"]
+readme.workspace = true
+keywords = ["manifold", "tensor", "agent", "bridge", "pincher"]
+categories = ["science", "mathematics", "simulation"]
 
 [dependencies]
-pincher-core = { path = "../pincher-core" }
+pincher-core = { path = "../pincher-core", version = "0.1.0" }
 ternary-types = { workspace = true }
 clap = { version = "4", features = ["derive", "env"] }
 ndarray = { version = "0.16", features = ["serde"] }
