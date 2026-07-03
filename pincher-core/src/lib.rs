@@ -49,8 +49,8 @@ pub use resource::{
 
 pub use security::{
     veto::{
-        ExecutionContext, VetoDecision, VetoEngine as SecVetoEngine, VetoError, VetoResult,
-        VetoRule,
+        ExecutionContext, RuleBasedVetoPolicy, VetoDecision, VetoEngine as SecVetoEngine,
+        VetoError, VetoPolicy, VetoResult, VetoRule,
     },
     Capability as SecCapability, LandlockRule, SandboxConfig, SandboxError as SecSandboxError,
     SandboxResult as SecSandboxResult, SignedToken,
