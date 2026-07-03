@@ -16,7 +16,7 @@ Pincher snaps into any shell and adds adaptive cognition. You teach it reflexes 
 ## Quick Start
 
 ```bash
-git clone https://github.com/SuperInstance/pincher.git
+git clone https://github.com/purplepincher/pincher.git
 cd pincher
 cargo build --release -p pincher-cli
 ./target/release/pincher status

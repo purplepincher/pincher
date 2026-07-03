@@ -53,7 +53,7 @@ Fleet coordination, research, builds, monitoring — anything that needs always-
 
 #### Boot sequence:
 ```bash
-git clone https://github.com/SuperInstance/pincher.git
+git clone https://github.com/purplepincher/pincher.git
 cd pincher
 ./boot.sh --mode lighthouse
 ```
@@ -113,7 +113,7 @@ Remote deployments, boats, field stations, anywhere with spotty internet.
 #### Boot sequence:
 ```bash
 # Tender clones and delivers
-git clone https://github.com/SuperInstance/pincher.git /mnt/usb/agent
+git clone https://github.com/purplepincher/pincher.git /mnt/usb/agent
 cd /mnt/usb/agent
 # Agent boots offline, commits locally
 git log # Local history — tender carries it back

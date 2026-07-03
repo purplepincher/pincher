@@ -29,5 +29,5 @@ blockers:
   
 persist_chain:
   - "MEMORY.md (immortal, workspace)"
-  - "GitHub SuperInstance/pincher (level-1/2/3)"
+  - "GitHub purplepincher/pincher (level-1/2/3)"
   - "workspace/i2i-vessel/ (level-2, survives reboot)"

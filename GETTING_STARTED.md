@@ -14,7 +14,7 @@
 ### From Source
 
 ```bash
-git clone https://github.com/SuperInstance/pincher.git
+git clone https://github.com/purplepincher/pincher.git
 cd pincher
 cargo build --release -p pincher-cli
 cp target/release/pincher ~/.local/bin/
@@ -23,7 +23,7 @@ cp target/release/pincher ~/.local/bin/
 ### One-Line Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/SuperInstance/pincher/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/purplepincher/pincher/main/install.sh | bash
 ```
 
 ### Feature Flags
