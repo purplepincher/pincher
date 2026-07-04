@@ -75,8 +75,9 @@ impl Add for Ternary {
             (Ternary::Neutral, t) | (t, Ternary::Neutral) => t,
             (Ternary::Positive, Ternary::Positive) => Ternary::Negative,
             (Ternary::Negative, Ternary::Negative) => Ternary::Positive,
-            (Ternary::Positive, Ternary::Negative)
-            | (Ternary::Negative, Ternary::Positive) => Ternary::Neutral,
+            (Ternary::Positive, Ternary::Negative) | (Ternary::Negative, Ternary::Positive) => {
+                Ternary::Neutral
+            }
         }
     }
 }
