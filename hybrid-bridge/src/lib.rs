@@ -64,6 +64,7 @@
 pub mod bridge;
 
 /// Chaos testing utilities — NaN/Inf injection, detection, and recovery.
+#[cfg(any(test, feature = "mocks"))]
 pub mod chaos;
 
 /// CLI front-end for inspecting and controlling the Hybrid Manifold.
@@ -80,12 +81,15 @@ pub mod engine;
 pub mod error;
 
 /// In-memory `Array3<f32>`-backed mock of the `MatrixEngine` trait.
+#[cfg(any(test, feature = "mocks"))]
 pub mod mock_matrix;
 
 /// Deterministic mock `RoomAgent` for integration testing.
+#[cfg(any(test, feature = "mocks"))]
 pub mod mock_room;
 
 /// Configurable mock `VetoEngine` with SAEP constraint support.
+#[cfg(any(test, feature = "mocks"))]
 pub mod mock_veto;
 
 /// Bridging layer between Hybrid Manifold and ternary-types ecosystem.
@@ -105,7 +109,9 @@ pub mod prelude {
     };
     pub use crate::datafeed::{CsvFileFeed, MarketDataFeed, StockTick};
     pub use crate::error::{HybridError, HybridResult};
+    #[cfg(any(test, feature = "mocks"))]
     pub use crate::mock_room::MockRoomAgent;
+    #[cfg(any(test, feature = "mocks"))]
     pub use crate::mock_veto::MockVetoEngine;
     pub use crate::types::{
         detect_non_finite, mask_non_finite, CheckFn, FeatureSuggestion, FinalPosition,
@@ -124,7 +130,9 @@ pub use engine::{
 };
 pub use datafeed::{CsvFileFeed, MarketDataFeed, StockTick};
 pub use error::{HybridError, HybridResult};
+#[cfg(any(test, feature = "mocks"))]
 pub use mock_room::MockRoomAgent;
+#[cfg(any(test, feature = "mocks"))]
 pub use mock_veto::MockVetoEngine;
 pub use types::{
     detect_non_finite, mask_non_finite, CheckFn, FeatureSuggestion, FinalPosition, GovernanceLayer,

@@ -11,6 +11,14 @@ readme.workspace = true
 keywords = ["manifold", "tensor", "agent", "bridge", "pincher"]
 categories = ["science", "mathematics", "simulation"]
 
+[features]
+# Exposes the testing/mock modules (`chaos`, `mock_matrix`, `mock_room`,
+# `mock_veto`) and their re-exports. Off by default so they are not part of
+# the published public API; auto-enabled for `cargo test` via the
+# `[dev-dependencies]` self-reference below. See
+# docs/prep-notes/mock-feature-gate-verification-trace.md.
+mocks = []
+
 [dependencies]
 pincher-core = { path = "../pincher-core", version = "0.1.0" }
 ternary-types = { workspace = true }
@@ -27,6 +35,13 @@ chrono = { workspace = true }
 uuid = { version = "1", features = ["v4", "serde"] }
 fastrand = "2.4.1"
 csv = "1.3"
+
+[dev-dependencies]
+# `cfg(test)` is not active on this crate when it is compiled as a dependency
+# for the integration-test targets in `tests/`, so we enable the `mocks`
+# feature here to keep those tests compiling without exposing the mock
+# modules in a normal (non-test) downstream build.
+hybrid-bridge = { path = ".", version = "0.1.0", features = ["mocks"] }
 
 [lib]
 name = "hybrid_bridge"
