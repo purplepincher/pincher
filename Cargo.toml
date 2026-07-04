@@ -25,4 +25,3 @@ tracing = "0.1"
 thiserror = "1"
 chrono = { version = "0.4", features = ["serde"] }
 ternary-types = { git = "https://github.com/SuperInstance/ternary-types", rev = "fa01da449de07108b8c99594253bea47e73be956", features = ["serde"] }
-silo-core = { git = "https://github.com/SuperInstance/silo-core", rev = "44e776064ccd64cedc875dcafec194d617124902" }
