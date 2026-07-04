@@ -626,7 +626,7 @@ fn default_veto_rules() -> Vec<VetoRule> {
 // Silence the unused `warn` import: it was present in the pre-refactor module
 // (preserved here verbatim) but is not currently emitted from this file.
 #[allow(unused_imports)]
-use warn as _allow_warn_import;
+use self::warn as _allow_warn_import;
 
 #[cfg(test)]
 mod tests {
