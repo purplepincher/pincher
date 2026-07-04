@@ -29,7 +29,7 @@ The root `README.md` describes the workspace as "two crates" (`pincher-core` and
 | Path deps to members have `version` | ✅ ready | no path dependencies on other workspace members |
 | Version number | ✅ ready | `version.workspace = true` → `0.1.0` (`pincher-core/Cargo.toml:3`) |
 | Name availability | ⚠️ needs human verification | `pincher-core` must be checked on crates.io |
-| Git dependencies | 🔴 needs fix | `ternary-types` is a git dependency (`pincher-core/Cargo.toml:30`). crates.io rejects packages that depend on unpublished/git crates. `ternary-types` (and `silo-core`, declared at `Cargo.toml:28` but unused) must be published to crates.io or vendored before `pincher-core` can publish. |
+| Git dependencies | 🔴 needs fix | `ternary-types` is a git dependency (`pincher-core/Cargo.toml:30`). crates.io rejects packages that depend on unpublished/git crates. `silo-core` (declared at `Cargo.toml:28`) is unused in this workspace and can be removed. See [`docs/prep-notes/git-dependency-resolution-options.md`](prep-notes/git-dependency-resolution-options.md) for publish-status verification and resolution options. |
 | Hardcoded secrets / dead code | ✅ resolved | Confirmed `pincher-core/src/daemon.rs`, `registry.rs`, and `updater.rs` were unreachable (not declared in `pincher-core/src/lib.rs`, not referenced via `#[path]`, and not used by any `[[bin]]` target) and removed them entirely, eliminating the hardcoded `SUPER_INSTANCE_SHARED_SECRET_KEY_FOR_NAIL_INTEGRITY` secret from the publish surface. **A second, previously-missed copy of the same four files (including the same secret) was found at the repo root's own `src/` directory** — not part of any workspace member (the root `Cargo.toml` is a bare `[workspace]` with no root package, and no other `Cargo.toml` in the workspace has a `path = "src/..."` pointing at it), confirmed orphaned the same way, and removed for the same reason. |
 | TODO/FIXME markers | ⚠️ minor | `pincher-core/src/migration/pack.rs:178` has a `TODO` doc comment for inline checksum verification. Not a blocker on its own, but the public API surface should be complete before a `1.0` publish. |
 
@@ -71,7 +71,7 @@ The root `README.md` describes the workspace as "two crates" (`pincher-core` and
 | Version number | ✅ ready | `version.workspace = true` → `0.1.0` (`hybrid-bridge/Cargo.toml:3`) |
 | Name availability | ⚠️ needs human verification | `hybrid-bridge` must be checked on crates.io |
 | Publish intent | ⚠️ open question | The root README describes the workspace as two crates and does not list `hybrid-bridge` as a published library (`README.md:113-117`). Its API docs (`hybrid-bridge/API.md`) present it as a reusable crate, but it may be intended as an internal component. Decide whether to publish it or leave it workspace-only. |
-| Git dependencies | 🔴 needs fix | `ternary-types` is inherited from workspace (`hybrid-bridge/Cargo.toml:16` → `Cargo.toml:27`). Same blocker as `pincher-core`: must be on crates.io before publishing. |
+| Git dependencies | 🔴 needs fix | `ternary-types` is inherited from workspace (`hybrid-bridge/Cargo.toml:24` → `Cargo.toml:27`). Same blocker as `pincher-core`: must be resolved before publishing. See [`docs/prep-notes/git-dependency-resolution-options.md`](prep-notes/git-dependency-resolution-options.md). |
 | Dev-only code in public API | ✅ resolved | Mock/chaos modules (`chaos`, `mock_matrix`, `mock_room`, `mock_veto`) and their `MockRoomAgent`/`MockVetoEngine` re-exports are now gated behind `#[cfg(any(test, feature = "mocks"))]` in `hybrid-bridge/src/lib.rs`. The non-default `mocks` feature is auto-enabled only for this crate's own test suite via a `[dev-dependencies]` self-reference, so a plain `cargo add hybrid-bridge` no longer pulls the testing modules into the public API. See `docs/prep-notes/mock-feature-gate-verification-trace.md`. |
 
 ---
@@ -89,7 +89,7 @@ The root `README.md` describes the workspace as "two crates" (`pincher-core` and
 
 1. **Name availability:** Verify on crates.io that `pincher-core`, `pincher-cli`, and (if desired) `pincher` and `hybrid-bridge` are available.
 2. **CLI package naming:** Decide whether `pincher-cli` is the intended package name or whether the package should be renamed to `pincher` to match `cargo install pincher` in the README.
-3. **External dependencies:** Publish or vendor `ternary-types` and `silo-core` to crates.io, or replace the git dependencies with versioned registry dependencies.
+3. **External dependencies:** Resolve the `ternary-types` git dependency. `silo-core` is unused and can be removed. See [`docs/prep-notes/git-dependency-resolution-options.md`](prep-notes/git-dependency-resolution-options.md) for verification details and options.
 4. **Dead code / secrets:** Remove or refactor `pincher-core/src/daemon.rs`, `registry.rs`, and `updater.rs`; in particular replace the hardcoded `SUPER_INSTANCE_SHARED_SECRET_KEY_FOR_NAIL_INTEGRITY` with runtime configuration.
 5. **`hybrid-bridge` scope:** Decide whether `hybrid-bridge` is meant to be a public crate. The mock/chaos dev-only modules are now feature-gated behind the non-default `mocks` feature (see the `hybrid-bridge` table above), so that specific blocker is resolved; the remaining open question is purely whether to publish the crate at all.
 
