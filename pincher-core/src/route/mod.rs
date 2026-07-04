@@ -4,7 +4,7 @@
 //!
 //! This module provides a [`RoomGraph`] type for modeling room-to-room
 //! relationships as a ternary-weighted graph where edges carry one of
-//! three weights via [`ternary_types::Ternary`]:
+//! three weights via [`Ternary`]:
 //!
 //! | Variant          | Value | Meaning                              |
 //! |------------------|-------|--------------------------------------|
@@ -15,11 +15,11 @@
 //! ## Example
 //!
 //! ```rust,ignore
-//! use pincher_core::route::RoomGraph;
+//! use pincher_core::route::{RoomGraph, Ternary};
 //!
 //! let mut g = RoomGraph::new(3);
-//! g.add_edge(0, 1, ternary_types::Ternary::Positive);
-//! g.add_edge(1, 2, ternary_types::Ternary::Positive);
+//! g.add_edge(0, 1, Ternary::Positive);
+//! g.add_edge(1, 2, Ternary::Positive);
 //!
 //! let dist = g.distances_from(0);
 //! assert_eq!(dist[0], Some(0.0));
@@ -27,7 +27,59 @@
 //! ```
 
 use std::collections::VecDeque;
-use ternary_types::Ternary;
+use std::ops::{Add, Neg};
+
+/// A balanced ternary value: one of `Negative` (−1), `Neutral` (0), or
+/// `Positive` (+1).
+///
+/// This is a minimal local replacement for the `ternary-types` crate's
+/// `Ternary` enum, covering only the operations used by the routing graph:
+/// `i8` conversion, equality, negation, and balanced addition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ternary {
+    /// −1
+    Negative,
+    /// 0
+    Neutral,
+    /// +1
+    Positive,
+}
+
+impl From<Ternary> for i8 {
+    fn from(t: Ternary) -> i8 {
+        match t {
+            Ternary::Negative => -1,
+            Ternary::Neutral => 0,
+            Ternary::Positive => 1,
+        }
+    }
+}
+
+impl Neg for Ternary {
+    type Output = Ternary;
+
+    fn neg(self) -> Self::Output {
+        match self {
+            Ternary::Negative => Ternary::Positive,
+            Ternary::Neutral => Ternary::Neutral,
+            Ternary::Positive => Ternary::Negative,
+        }
+    }
+}
+
+impl Add for Ternary {
+    type Output = Ternary;
+
+    fn add(self, rhs: Ternary) -> Self::Output {
+        match (self, rhs) {
+            (Ternary::Neutral, t) | (t, Ternary::Neutral) => t,
+            (Ternary::Positive, Ternary::Positive) => Ternary::Negative,
+            (Ternary::Negative, Ternary::Negative) => Ternary::Positive,
+            (Ternary::Positive, Ternary::Negative)
+            | (Ternary::Negative, Ternary::Positive) => Ternary::Neutral,
+        }
+    }
+}
 
 // ── Ternary-Weighted Graph ──────────────────────────────────────────
 
@@ -579,12 +631,12 @@ pub fn modularity(g: &TernaryGraph, communities: &[usize]) -> f64 {
     for u in 0..n {
         let deg_pos: f64 = g.adj[u]
             .iter()
-            .filter(|&&(_, w)| w == ternary_types::Ternary::Positive)
+            .filter(|&&(_, w)| w == Ternary::Positive)
             .map(|_| 1.0)
             .sum();
         let deg_neg: f64 = g.adj[u]
             .iter()
-            .filter(|&&(_, w)| w == ternary_types::Ternary::Negative)
+            .filter(|&&(_, w)| w == Ternary::Negative)
             .map(|_| 1.0)
             .sum();
 
@@ -654,12 +706,12 @@ impl RoomGraph {
 
     /// Add a trusted (positive-weight) route.
     pub fn add_trusted_route(&mut self, a: usize, b: usize) {
-        self.graph.add_edge(a, b, ternary_types::Ternary::Positive);
+        self.graph.add_edge(a, b, Ternary::Positive);
     }
 
     /// Add a blocked (negative-weight) route.
     pub fn add_blocked_route(&mut self, a: usize, b: usize) {
-        self.graph.add_edge(a, b, ternary_types::Ternary::Negative);
+        self.graph.add_edge(a, b, Ternary::Negative);
     }
 
     /// Shortest paths from `source` using Bellman-Ford.
@@ -897,9 +949,25 @@ mod tests {
     }
 
     #[test]
-    fn test_ternary_re_export_type() {
-        // Verify we can dereference the ternary-types Ternary directly
-        let t = ternary_types::Ternary::Positive;
-        assert_eq!(i8::from(t), 1);
+    fn test_local_ternary_conversions() {
+        // Verify the local Ternary enum converts correctly to i8
+        assert_eq!(i8::from(Ternary::Positive), 1);
+        assert_eq!(i8::from(Ternary::Neutral), 0);
+        assert_eq!(i8::from(Ternary::Negative), -1);
+    }
+
+    #[test]
+    fn test_local_ternary_negation() {
+        assert_eq!(-Ternary::Positive, Ternary::Negative);
+        assert_eq!(-Ternary::Negative, Ternary::Positive);
+        assert_eq!(-Ternary::Neutral, Ternary::Neutral);
+    }
+
+    #[test]
+    fn test_local_ternary_addition() {
+        assert_eq!(Ternary::Positive + Ternary::Positive, Ternary::Negative);
+        assert_eq!(Ternary::Negative + Ternary::Negative, Ternary::Positive);
+        assert_eq!(Ternary::Positive + Ternary::Negative, Ternary::Neutral);
+        assert_eq!(Ternary::Neutral + Ternary::Positive, Ternary::Positive);
     }
 }
