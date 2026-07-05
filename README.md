@@ -71,9 +71,7 @@ Medium (s):   Confirmation + optional execution (low confidence)
 Slow   (s):   LLM compilation → new reflex (learning event)
 ```
 
-**The shell is the design.** Not the agent. The shell. The agent will be replaced. The shell will persist. The agent will forget. The shell will remember. The agent will lose context. The shell will preserve shape.
-
-Every cycle through this engine makes the agent faster and cheaper. The reflex database grows. The match scores climb. The LLM gets called less and less. The spinal cord takes over from the cortex.
+Every cycle through this engine makes the agent faster and cheaper. The reflex database grows. The match scores climb. The LLM gets called less and less.
 
 ---
 
@@ -102,35 +100,38 @@ The pinch flows through the shell:
 4. **Act** — the matched action executes in a sandbox
 5. **Learn** — success strengthens the reflex; failure degrades it
 
-The shell is what remains. The coral reef, built from the skeletons of generations. The codebase, edited by a hundred hands. The context window, filled with the debris of earlier conversations. The shell is the accumulated architecture of living things, and that accumulation is what makes future living things possible.
-
 The reflex database is the reef. Every teach is a polyp. Every match is a generation. Every confidence adjustment is adaptation.
 
 ---
 
 ## The Architecture
 
-pincher is a Rust workspace, two crates:
+pincher is a Rust workspace, three crates:
 
 **`pincher-core`** — all the runtime logic. Reflex engine, vector store, embeddings, sandbox, migration, RPC, security, resource control. Feature-gated for optional components.
 
 **`pincher-cli`** — the `pincher` binary. Clap-based, async via tokio, thin wrapper over the core library.
 
+**`hybrid-bridge`** — internal communication backbone between components. Not currently published.
+
 ```
 pincher-core/src/
-├── reflex/       # The reflex engine (match, execute, teach, confidence)
+├── capability/   # Capability manifests and signed tokens
+├── carapace/     # WASM sandbox bridge for guest code
 ├── db/           # SQLite vector store with sqlite-vec
+├── dynamics/     # Veto engine
 ├── embed/        # ONNX embeddings (all-MiniLM-L6-v2) + hash fallback
-├── sandbox/      # Bubblewrap isolation + veto engine
-├── migration/    # .nail pack/unpack with BLAKE3 + tar.zst
-├── rpc/          # JSON-RPC server for programmatic control
-├── resource/     # PID controller with budgets
-├── capability/   # Signed tokens and manifests
-├── security/     # Veto engine, landlock rules
-├── route/        # Spectral clustering, label propagation, room graphs
 ├── immunology/   # Pattern-based immune system
-├── shell/        # Hardware fingerprinting
-└── dynamics/     # Carapace dynamics
+├── intent/       # Declarative intent-to-action contracts (Intent.toml)
+├── kernel/       # SIMD-optimized compute kernels
+├── migration/    # .nail pack/unpack with BLAKE3 + tar.zst
+├── reflex/       # The reflex engine (match, execute, teach, confidence)
+├── resource/     # Resource budgets and PID controller
+├── route/        # Spectral clustering, label propagation, room graphs
+├── rpc/          # JSON-RPC server for programmatic control
+├── sandbox/      # Bubblewrap isolation
+├── security/     # Veto engine, landlock rules
+└── shell/        # Hardware fingerprinting
 ```
 
 #### Feature Flags
@@ -140,54 +141,32 @@ pincher-core/src/
 | `onnx` | Real ONNX Runtime embeddings (all-MiniLM-L6-v2) |
 | `landlock` | Linux Landlock sandboxing (kernel 5.13+) |
 | `wasmtime` | WASM guest module execution |
+| `ternary-kernel` | SIMD-optimized cosine/L2/scale kernels (aarch64 NEON) |
 
 Without any features, pincher uses hash-based embedding fallback. It works. It's just less semantically aware — it'll match exact intents perfectly and similar intents less well.
 
----
-
-## The Fleet Context
-
-pincher is the first shell new agents inherit. It is layer 2 of the SuperInstance nervous system:
-
-```
-cudaclaw        ← deployed kernels at fleet scale
-cuda-oxide      ← compile intent to GPU machine code
-flux-core       ← agent cognition as bytecode IR
-pincher         ← reflexes: intent → action, <50ms   ← YOU ARE HERE
-open-parallel   ← ternary math: {-1, 0, +1}
-```
-
-The layers aren't a pipeline. They're a nervous system. pincher is the spinal cord — fast reflexes, no thinking. When pincher encounters something novel, it escalates to [flux-core](https://github.com/SuperInstance/flux-core) (the cortex) for deliberation. When a deliberated response proves reliable, it can be compiled through [cuda-oxide](https://github.com/SuperInstance/cuda-oxide) and deployed via [cudaclaw](https://github.com/SuperInstance/cudaclaw) so thousands of agents can use it at GPU speed.
-
-The cortex teaches the spinal cord. The spinal cord gets faster. Learning becomes reflex.
-
-The `.nail` file is the connective tissue. Every reflex, every confidence score, every preference — bundled into a portable archive that carries the agent's identity across machines, runtimes, and migrations. The shell is pincher. The `.nail` file is the crab — everything the agent learned, everything it is, packed up and ready to move to the next machine, the next runtime, the next version of itself. The shell can change. The crab carries on.
-
-Same crab. Bigger shell.
-
-**Connected works:**
-
-- [**agent-sync**](https://github.com/SuperInstance/agent-sync) — teaches agents *when* to fire. Timing > quality. The reflex is the lick. The sync is the moment.
-- [**character-build**](https://github.com/SuperInstance/character-build) — reads `.nail` bundles as RPG character sheets.
-- [**musician-soul**](https://github.com/SuperInstance/musician-soul) — the vector DB that learns from MIDI. Same embedding architecture, different domain.
-- [**lever-runner**](https://github.com/SuperInstance/lever-runner) — the sandbox where pincher's reflexes execute.
-- [**ternary-types**](https://github.com/SuperInstance/ternary-types) — Z₃ math primitives used throughout routing and matching.
-- [**SuperInstance**](https://github.com/SuperInstance/SuperInstance) — the flagship. Onboarding, architecture, the whole story.
+pincher is part of the purplepincher edge-tier family; for a related bare-metal sensor engine, see [plato-engine-block-c](https://github.com/purplepincher/plato-engine-block-c).
 
 ---
 
 ## Quick Start
 
+Pincher embeds your intents into a 384-dim vector space, fires known reflexes in under 50ms with zero LLM calls, and learns from every miss.
+
 ```bash
-# Build from source
+# One-line install (builds from source)
+curl -fsSL https://raw.githubusercontent.com/purplepincher/pincher/main/install.sh | bash
+```
+
+```bash
+# Or build from source manually
 git clone https://github.com/purplepincher/pincher.git
 cd pincher
 cargo build --release -p pincher-cli
 cp target/release/pincher ~/.local/bin/
-
-# Or one-line install
-curl -fsSL https://raw.githubusercontent.com/purplepincher/pincher/main/install.sh | bash
 ```
+
+> **Note:** `cargo install pincher` is not available yet — the crates are not published on crates.io. Use `install.sh` or build from source for now.
 
 First five minutes:
 
@@ -195,10 +174,12 @@ First five minutes:
 pincher status                 # Is it alive?
 pincher reflexes               # What does it know?
 pincher do "list files"        # Run intent through the reflex engine
-pincher teach                  # Teach it something new
+pincher teach                  # Teach it something new (interactive)
 pincher doctor                 # Full diagnostic
 pincher pack --output crab.nail   # Pack agent state
 ```
+
+`pincher teach` is genuinely interactive: it prompts for an intent, then an action, stores the pair as a reflex, and loops until you type `quit` or `exit`. It is not a one-line pipeable command.
 
 The CLI:
 
@@ -223,39 +204,6 @@ Every `pincher do` is a learning event. If the intent matches, the reflex fires 
 
 ---
 
-## Design
-
-pincher wears the hermit-crab power armor palette — scavenged, adapted, improvised. Worn brass, oxidized copper, deep teal, bioluminescent green. The aesthetic of a system that was built by inheriting, not by greenfield construction.
-
-```
-  #C9A84C   Brass          — worn guild brass. Navigation, borders, headers.
-  #4A7C6F   Oxidized Copper — aged copper patina. Cards, backgrounds.
-  #1A4B5C   Deep Teal       — shell interior. Dark surfaces, containment.
-  #8B4513   Rust            — danger, decay, warning. Accents.
-  #3A3F47   Salvage Grey    — salvaged metal. Neutral surfaces, text.
-  #00FF88   Bioluminescent  — live data, healthy metrics, active state.
-  #E8883A   Warm Amber      — gauge pressure, medium warning, glow.
-  #C84B8E   Magenta         — oracle/void signals, anomalies.
-```
-
-**Typographic skin:**
-
-| Role | Font | Usage |
-|------|------|-------|
-| Headers | Playfair Display (serif) | Steampunk gravitas |
-| Data / code | JetBrains Mono | Cyberpunk terminal |
-| Body | Inter (sans) | Clean, readable |
-
-The shell card pattern — brass-bordered cards with gear-pattern backgrounds, bioluminescent metric readouts, riveted edges — carries the design language. pincher's dashboards and diagnostics surface as shell interiors: warm, dark, instrumented, alive.
-
-For the full design system, see [the hermit-crab aesthetic design](https://github.com/SuperInstance/hermit-crab-aesthetic-design).
-
----
-
 ## License
 
 MIT OR Apache-2.0
-
----
-
-*The crab inherits the shell. The shell becomes the armor. The armor carries the fleet.*
