@@ -1155,7 +1155,7 @@ checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 
 [[package]]
 name = "hybrid-bridge"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arrow",
  "async-trait",
@@ -1163,11 +1163,12 @@ dependencies = [
  "clap",
  "csv",
  "fastrand",
+ "hybrid-bridge",
  "ndarray 0.16.1",
  "pincher-core",
  "serde",
  "serde_json",
- "ternary-types 0.2.0",
+ "ternary-types",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
@@ -1776,7 +1777,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pincher-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1790,7 +1791,7 @@ dependencies = [
 
 [[package]]
 name = "pincher-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1807,7 +1808,6 @@ dependencies = [
  "sqlite-vec",
  "sysinfo",
  "tar",
- "ternary-types 0.1.0",
  "thiserror 1.0.69",
  "tokio",
  "toml",
@@ -2348,14 +2348,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
-]
-
-[[package]]
-name = "ternary-types"
-version = "0.1.0"
-source = "git+https://github.com/SuperInstance/ternary-types#1dae82f87db67670cfe9eca4f805453bcb5a0ce9"
-dependencies = [
- "serde",
 ]
 
 [[package]]
