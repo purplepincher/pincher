@@ -1,16 +1,24 @@
-//! # Route Module
+//! # Room Routing Engine
 //!
 //! Room routing and decision-making using ternary-valued edge weights.
 //!
-//! This module provides a [`RoomGraph`] type for modeling room-to-room
-//! relationships as a ternary-weighted graph where edges carry one of
-//! three weights via [`Ternary`]:
+//! This module models room-to-room relationships as a **ternary-weighted
+//! graph** where edges carry one of three weights via [`Ternary`]:
 //!
 //! | Variant          | Value | Meaning                              |
 //! |------------------|-------|--------------------------------------|
 //! | `Positive`       | `+1`  | Trusted connection, preferred route   |
 //! | `Neutral`        | `0`   | No relationship, neutral              |
 //! | `Negative`       | `−1`  | Adversarial/blocked path, avoid       |
+//!
+//! With this model, pincher can:
+//!
+//! - **Find shortest paths** through the room mesh while avoiding blocked routes
+//! - **Detect communities** — rooms that naturally cluster together (via label
+//!   propagation or spectral clustering)
+//! - **Score partition quality** with signed modularity
+//! - **Discover trusted subgraphs** — connected components over positive edges only
+//! - **Compute next-hop routing** for multi-hop message delivery
 //!
 //! ## Example
 //!
@@ -669,10 +677,10 @@ pub fn modularity(g: &TernaryGraph, communities: &[usize]) -> f64 {
 
 // ── RoomGraph ───────────────────────────────────────────────────────
 
-/// A named room routing graph built on a [`TernaryGraph`].
+/// A named node in the routing graph.
 ///
-/// Each room is a node with a name and optional agent list. The edges carry
-/// ternary weights for routing decisions.
+/// Each `Room` represents an addressable space in the pincher mesh — it could be
+/// a physical room, a virtual partition, or a logical agent group.
 #[derive(Clone, Debug)]
 pub struct Room {
     pub id: usize,
@@ -682,7 +690,22 @@ pub struct Room {
 
 /// The top-level routing graph for pincher.
 ///
-/// Wraps a [`TernaryGraph`] with room metadata so routes can be queried by name or id.
+/// Wraps a [`TernaryGraph`] with room metadata so routes can be queried by name
+/// or id.
+///
+/// ## Example
+///
+/// ```rust,ignore
+/// use pincher_core::route::build_routing_graph;
+///
+/// let mut g = build_routing_graph(&["lobby", "dev", "staging"]);
+/// g.add_trusted_route(0, 1);
+/// g.add_trusted_route(1, 2);
+///
+/// let dist = g.distances_from(0);
+/// assert_eq!(dist[1], Some(1.0)); // lobby → dev: direct
+/// assert_eq!(dist[2], Some(2.0)); // lobby → staging: via dev
+/// ```
 #[derive(Clone, Debug)]
 pub struct RoomGraph {
     pub graph: TernaryGraph,
@@ -724,6 +747,36 @@ impl RoomGraph {
     pub fn route_cost(&self, source: usize, target: usize) -> Option<f64> {
         let dist = self.distances_from(source);
         dist.get(target).copied().flatten()
+    }
+
+    /// Find the cheapest next hop from `source` toward `target`.
+    ///
+    /// Uses all-pairs shortest paths internally. For repeated queries,
+    /// consider caching the all-pairs matrix externally.
+    ///
+    /// Returns `Some((neighbor_id, distance_via_neighbor))` if a valid
+    /// next hop exists, or `None` if `target` is unreachable.
+    pub fn next_hop(&self, source: usize, target: usize) -> Option<(usize, f64)> {
+        let apsp = all_pairs_shortest_paths(&self.graph);
+        let source_dist = &apsp[source];
+
+        // A valid next hop is a neighbor whose distance to target is strictly
+        // less than source's distance — it makes forward progress.
+        source_dist[target].and_then(|d_target| {
+            self.graph
+                .neighbors(source)
+                .iter()
+                .filter_map(|&(neighbor, _)| {
+                    source_dist[neighbor].and_then(|d_n| {
+                        if d_n < d_target {
+                            Some((neighbor, d_n))
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+        })
     }
 
     /// All-pairs shortest paths.
@@ -881,6 +934,32 @@ mod tests {
 
         let communities = rg.detect_communities(50);
         assert_eq!(communities.len(), 3);
+    }
+
+    #[test]
+    fn test_next_hop_routing() {
+        // Layout: 0 -- 1 -- 2 -- 3
+        let mut rg = build_routing_graph(&["a", "b", "c", "d"]);
+        rg.add_trusted_route(0, 1);
+        rg.add_trusted_route(1, 2);
+        rg.add_trusted_route(2, 3);
+
+        let hop = rg.next_hop(0, 3);
+        assert_eq!(
+            hop,
+            Some((1, 1.0)),
+            "from a, the next hop toward d should be b"
+        );
+
+        let hop = rg.next_hop(2, 0);
+        assert_eq!(
+            hop,
+            Some((1, 1.0)),
+            "from c, the next hop toward a should be b"
+        );
+
+        let hop = rg.next_hop(0, 0);
+        assert_eq!(hop, None, "no next hop needed when source is target");
     }
 
     #[test]
