@@ -402,7 +402,7 @@ Please open an issue with the label `feature-request` and describe:
 
 ## License
 
-By contributing to PincherOS, you agree that your contributions will be licensed under the [MIT License](../LICENSE).
+By contributing to PincherOS, you agree that your contributions will be licensed under the [MIT License](../LICENSE) or the [Apache-2.0 License](../LICENSE-APACHE), at your option.
 
 ---
 

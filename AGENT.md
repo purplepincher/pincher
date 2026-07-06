@@ -24,6 +24,6 @@ I keep a duty log in `memory/`.
 
 ## License
 
-MIT
+MIT OR Apache-2.0
 
 *The crab inherits the shell. The forge shapes the steel.*
