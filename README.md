@@ -1,6 +1,46 @@
 # pincher
 
-Local-first reflex engine that stores intent-to-action pairs, matches incoming natural-language intents with vector similarity, and executes the matched action without calling an LLM.
+Local-first reflex engine: store intent-to-action pairs, match incoming natural-language intents by vector similarity, and execute the matched action without calling an LLM. A genuine miss is handed back to the caller so an LLM or sidecar can turn it into a new reflex.
+
+## The tension this resolves
+
+If you have built anything on top of an LLM, you have probably felt the pull in two directions at once.
+
+One direction says: *call the model for everything*. It is flexible, it handles phrasing you never anticipated, and it sounds natural. The cost is that you pay for every token and wait for every round-trip, even when the request is trivial. A voice assistant that asks the cloud for permission to turn on a light is a familiar symptom. So is a customer-support bot that takes three seconds to answer "what are your hours?" because it is busy drafting prose.
+
+The other direction says: *hardcode the common paths*. Match on keywords, maintain a lookup table, run fast local handlers. That works until a user phrases the same need a different way, or asks for something adjacent that you did not pre-declare. Then the system breaks not because the capability is missing, but because the wiring is too rigid.
+
+`pincher` sits between those two poles. It keeps a local, learnable map of **reflexes** — intent-to-action pairs — and fires them in milliseconds when the intent is recognized. When the intent is not recognized, it does not guess; it returns a **novel** result so a smarter layer can decide what to do next. The LLM stops being the first responder for every request and becomes the compiler for the requests you have not taught yet.
+
+## The core idea, taught in place
+
+A **reflex** is one piece of knowledge: a natural-language **intent** (what the user wants) paired with an **action** (what to do about it). `pincher teach` stores that pair in a local SQLite database. `pincher do <intent>` looks it up and runs the action.
+
+The lookup is not a string comparison. The engine converts the intent text into a 384-dimensional **embedding** — a vector that captures meaning — using either an ONNX model (`all-MiniLM-L6-v2`) or a deterministic SHA-256 trigram hash fallback if the model is absent. It then searches stored reflex embeddings with **cosine similarity** (a score from -1 to 1 measuring how close two vectors point in the same direction) and classifies the best match into one of three buckets:
+
+- **Exact** — cosine similarity ≥ 0.80. The engine runs the action immediately.
+- **Similar** — cosine similarity between 0.55 and 0.80. The engine runs the action but flags it as uncertain; the output is annotated so a caller can review or refine it.
+- **Novel** — cosine similarity < 0.55. Nothing fires. The engine returns the best score it found and lets the caller route to an LLM, a human, or `pincher teach`.
+
+These thresholds live in `MatchThresholds` in `pincher-core/src/reflex/matcher.rs` and are calibrated for `all-MiniLM-L6-v2`.
+
+### A concrete example of a known intent vs. a genuine miss
+
+Suppose you teach this reflex:
+
+```bash
+$ pincher teach
+Intent: say hello
+Action (e.g., system.info, ls -la, or SQL): $ echo hello
+```
+
+`pincher teach` embeds `"say hello"` and stores the pair with a default confidence of **0.50**. Now the engine sees three different inputs:
+
+1. `"say hello"` — exact string match found in the database. The matcher computes the real cosine similarity between the query embedding and the stored embedding, classifies it as **Exact**, and runs `$ echo hello`. No network call.
+2. `"greet me"` — no exact string match, but the embedding is close enough to `"say hello"` that cosine similarity lands in the 0.55–0.80 range. The engine classifies it as **Similar**, runs the action, and marks the output with a warning that a human or LLM should review it.
+3. `"what is the weather in Tokyo?"` — the embedding is far from every stored reflex. The best similarity is below 0.55. The engine classifies the input as **Novel**, does not run anything, and returns the miss to the caller. That is the genuine miss: the point where an LLM is actually useful, because there is no local reflex to fire.
+
+This is the reflex/escalation pattern. Known intents stay local, fast, and cheap. Unknown intents escalate cleanly.
 
 ## Quickstart
 
@@ -29,7 +69,7 @@ pincher do "system.info"
 pincher reflexes
 ```
 
-`cargo install pincher` is not available — the crates are not on crates.io yet.
+`cargo install pincher` is not available — the crates are not on crates.io yet. You can confirm this with `cargo search pincher`; no `pincher`, `pincher-core`, or `pincher-cli` package is published.
 
 ## Usage
 
@@ -39,12 +79,16 @@ pincher reflexes
 
 ```bash
 $ pincher teach
+🤖 Interactive Teach Mode
+  Enter an intent (what you want to do) and an action (how to do it).
+  Type 'quit' on either prompt to exit.
+
 Intent: say hello
 Action (e.g., system.info, ls -la, or SQL): $ echo hello
-✅ Taught: intent="say hello" → action="$ echo hello" (reflex_id=..., confidence=0.50)
+✅ Taught: intent="say hello" → action="$ echo hello" (reflex_id=b7bb13dc-6a8f-4324-8d56-572d18769e20, confidence=0.50)
 ```
 
-Actions that start with `$` run as shell commands; anything else is treated as a SQL statement or dispatched to a built-in reflex.
+Actions that start with `$` run as shell commands; SQL statements run against the local SQLite database; built-in intents dispatch to Rust functions; anything else is treated as a shell command.
 
 ### Execute an exact intent
 
@@ -61,7 +105,7 @@ $ PINCHER_LOG_LEVEL=error pincher do "say hello"
 
 ### Run a built-in reflex
 
-The database is seeded with built-in reflexes such as `system.info`, `process.list`, `git.status`, `docker.ps`, and `env.get`.
+The database is seeded with 10 built-in reflexes: `system.info`, `file.read`, `file.write`, `process.list`, `process.kill`, `network.ping`, `git.status`, `git.diff`, `docker.ps`, and `env.get`. Built-in intents map to Rust functions rather than shell commands.
 
 ```bash
 $ PINCHER_LOG_LEVEL=error pincher do "system.info"
@@ -77,7 +121,7 @@ $ PINCHER_LOG_LEVEL=error pincher do "system.info"
   "uptime_secs": 19288
 }
   Confidence: 1.00
-  Match type: exact
+  Match type: builtin
   Latency:    53 ms
 ```
 
@@ -103,14 +147,14 @@ pincher unpack --bundle agent.nail
 ## How it works
 
 1. **Store** — `pincher teach` embeds the intent into a 384-dimensional vector and stores the intent-action pair in a local SQLite database (`~/.pincher/reflexes.db` by default). The database uses the `sqlite-vec` extension for vector search.
-2. **Match** — `pincher do <intent>` embeds the input and searches the stored vectors. The matcher classifies the best result as:
+2. **Match** — `pincher do <intent>` embeds the input and searches stored vectors. The matcher first tries an exact string match, then falls back to sqlite-vec nearest-neighbor search and re-ranks the top candidates with cosine similarity. It classifies the best result as:
    - **Exact** — cosine similarity ≥ 0.80
    - **Similar** — cosine similarity 0.55–0.80 (the result is returned with a warning that it may need review)
    - **Novel** — cosine similarity < 0.55 (no reflex fires)
-3. **Execute** — matched actions run through a capability-based sandbox (bubblewrap/landlock when available) or a restricted fallback executor. Built-in intents such as `system.info` map to Rust functions rather than shell commands.
-4. **Learn** — every successful execution increments `invoke_count` and nudges confidence up; failures nudge it down. Confidence is clamped to `[0.05, 0.95]`.
+3. **Execute** — before any action runs, the **veto engine** checks it. A veto is a safety policy that can **Allow**, **Deny**, or **RequireConfirmation** for a command. The default rule set blocks patterns such as `rm -rf /`, `mkfs`, `dd if=...`, writes to `/etc`, `/sys`, `/proc`, `/boot`, or `/dev`, network commands like `curl`, `wget`, `ssh`, and `nc`, and encoded execution tricks like `base64 -d | sh`, `eval`, and `exec`. If the action passes the veto, it runs through a **sandbox** — a capability-based isolation layer that uses bubblewrap (`bwrap`) and Linux Landlock (when the `landlock` feature is enabled) to restrict what the command can see and do. If neither is available, it falls back to a restricted `std::process::Command` executor with a minimal environment.
+4. **Learn** — every successful execution increments `invoke_count` and updates confidence: success adds 5% of the remaining gap to 1.0, failure subtracts 10% of the current value. Confidence is clamped to `[0.05, 0.95]`.
 
-The matching layer is deterministic: without the ONNX model, the engine uses a SHA-256 trigram hash fallback in the same 384-dimensional space. This still matches exact intents but is far less semantically aware than the ONNX path.
+The matching layer is deterministic: without the ONNX model, the engine uses a SHA-256 trigram hash fallback in the same 384-dimensional space. This still matches exact intents reliably but is far less semantically aware than the ONNX path.
 
 ## Configuration and options
 
@@ -169,6 +213,10 @@ curl -L -o ~/.pincher/models/all-MiniLM-L6-v2-int8.onnx \
 - **Sandboxing is optional.** If `bwrap` and Landlock are unavailable, commands fall back to a restricted `std::process::Command` executor.
 - **Linux-first.** Several security and fingerprinting features assume a Linux environment.
 - **Not on crates.io.** Distribution is currently source-only via `install.sh` or a `cargo build` from this repository.
+
+## Tests
+
+The workspace contains 184 unit tests in `pincher-core`, 64 in `hybrid-bridge`, and 3 end-to-end tests in `tests/e2e_runtime_test.rs`. The e2e tests currently import `BundleSecurityEngine`, which does not exist in `pincher-core`, so the end-to-end suite does not compile as written. The unit-test suites can be run with `cargo test -p pincher-core --lib` and `cargo test -p hybrid-bridge --lib`; full workspace builds are heavy because of the ONNX and sqlite-vec dependencies.
 
 ## Project layout
 
