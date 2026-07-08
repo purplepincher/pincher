@@ -56,7 +56,7 @@ Or build manually:
 ```bash
 git clone https://github.com/purplepincher/pincher.git
 cd pincher
-cargo build --release -p pincher-cli
+cargo build --release -p pincher
 cp target/release/pincher ~/.local/bin/
 ```
 
@@ -69,7 +69,7 @@ pincher do "system.info"
 pincher reflexes
 ```
 
-`cargo install pincher` is not available — the crates are not on crates.io yet. You can confirm this with `cargo search pincher`; no `pincher`, `pincher-core`, or `pincher-cli` package is published.
+`cargo install pincher` is not available — the crates are not on crates.io yet. You can confirm this with `cargo search pincher`; no `pincher` or `pincher-core` package is published.
 
 ## Usage
 
@@ -188,7 +188,7 @@ The matching layer is deterministic: without the ONNX model, the engine uses a S
 Build with optional features:
 
 ```bash
-cargo build --release -p pincher-cli --features onnx,landlock
+cargo build --release -p pincher --features onnx,landlock
 ```
 
 | Feature | Effect |

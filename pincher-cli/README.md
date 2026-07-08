@@ -1,4 +1,4 @@
-# pincher-cli
+# pincher
 
 Command-line interface for [PincherOS](https://github.com/SuperInstance/pincher).
 

@@ -1,5 +1,5 @@
 [package]
-name = "pincher-cli"
+name = "pincher"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -7,7 +7,7 @@ license.workspace = true
 description.workspace = true
 repository.workspace = true
 homepage.workspace = true
-readme.workspace = true
+readme = "README.md"
 keywords.workspace = true
 categories = ["command-line-utilities"]
 

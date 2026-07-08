@@ -9,7 +9,7 @@
 ### Morning (30 min)
 - [ ] Read [README.md](../README.md) — understand the hermit crab philosophy
 - [ ] Read the [TUTORIALS.md](../TUTORIALS.md) — run Tutorial 1
-- [ ] Install pincher: `cargo build --release -p pincher-cli`
+- [ ] Install pincher: `cargo build --release -p pincher`
 
 ### Afternoon (2 hours)
 - [ ] Run `pincher status` — verify it's alive

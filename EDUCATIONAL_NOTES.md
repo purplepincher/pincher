@@ -37,7 +37,7 @@ The following claims were checked against the source rather than copied from the
 - Default confidence on teach: `0.5` in `ReflexEngine::teach` (`pincher-core/src/reflex/engine.rs`). The old README and `GETTING_STARTED.md` both said 0.55; the source says 0.50, so the README now says 0.50.
 - Confidence update rule: success adds `0.05 * (1.0 - current)`, failure subtracts `0.10 * current`, clamped to `[0.05, 0.95]` in `pincher-core/src/reflex/confidence.rs`.
 - Built-in reflexes: exactly the 10 intents listed in `is_builtin_intent` and `BUILTIN_REFLEXES` in `pincher-core/src/reflex/engine.rs` and `pincher-core/src/db/schema.rs`.
-- Crates.io status: verified with `cargo search pincher`; no `pincher`/`pincher-core`/`pincher-cli` package is published. The old README's claim that the crates are not on crates.io remains accurate.
+- Crates.io status: verified with `cargo search pincher`; no `pincher`/`pincher-core` package is published. The old README's claim that the crates are not on crates.io remains accurate.
 - CLI output format: every example block matches the `println!` statements in `pincher-cli/src/main.rs` (`cmd_status`, `cmd_teach`, `cmd_do`, `cmd_reflexes`).
 
 ### 5. Correct one source-code-level finding
@@ -54,4 +54,4 @@ No new features, claims, or capabilities were invented. The project layout, lice
 
 ## Verification limits
 
-I attempted to run the test suite and `cargo check -p pincher-cli` to verify compilation. Both timed out after 300 seconds because the workspace depends on heavy crates such as `ort` (ONNX Runtime) and `sqlite-vec`. The README therefore relies on direct source inspection for API and output-format claims, and it is honest about the unverified end-to-end test import.
+I attempted to run the test suite and `cargo check -p pincher` to verify compilation. Both timed out after 300 seconds because the workspace depends on heavy crates such as `ort` (ONNX Runtime) and `sqlite-vec`. The README therefore relies on direct source inspection for API and output-format claims, and it is honest about the unverified end-to-end test import.

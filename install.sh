@@ -53,7 +53,7 @@ cd "${REPO_DIR}"
 
 # --- Build release ---
 info "Building release binary (this may take a few minutes)..."
-if cargo build --release -p pincher-cli 2>&1; then
+if cargo build --release -p pincher 2>&1; then
     ok "Build successful"
 else
     fail "Build failed. Check the error output above."

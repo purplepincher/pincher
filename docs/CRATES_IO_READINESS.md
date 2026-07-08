@@ -1,106 +1,170 @@
 # crates.io Publish Readiness Audit
 
-> **Prep-only audit.** No `cargo publish`, `cargo package`, or network calls to crates.io were performed. The environment has no Rust toolchain, so local `cargo publish --dry-run` verification was not possible.
+> **Re-audited live on 2026-07-08** with `cargo` / `rustc` **1.96.1**.
+> The previous version of this doc was written in an environment with no Rust
+> toolchain, so it could not run `cargo fmt`, `cargo build`, or
+> `cargo publish --dry-run`. All of those have now been run for real; results
+> below are from actual toolchain output, not reasoning traces.
+
+---
+
+## What remains for Casey (org owner) to do himself
+
+This is the **complete** remaining list — there is nothing else:
+
+```bash
+cargo login                                 # paste Casey's crates.io API token
+cargo publish -p pincher-core               # MUST go first — pincher depends on it
+cargo publish -p pincher                    # only after pincher-core is live on crates.io
+```
+
+That is all. `pincher` cannot be dry-run-verified end-to-end locally until
+`pincher-core` is actually on the registry (it's a real dependency, not a path
+dep at publish time), so the two publishes must happen in that order. No real
+publish was performed here — there is no crates.io token in this environment,
+and publishing is reserved for Casey.
+
+---
 
 ## Scope
 
-Workspace members are defined in the root `Cargo.toml`:
+Workspace members (root `Cargo.toml:3-7`):
 
-- `pincher-core` — core runtime library (`Cargo.toml:3-4`).
-- `pincher-cli` — command-line package that builds the `pincher` binary (`Cargo.toml:5`).
-- `hybrid-bridge` — Hybrid Manifold communication backbone (`Cargo.toml:6`).
+- `pincher-core` — core runtime library. **Publishable.**
+- `pincher-cli` directory → package renamed to **`pincher`** (see below). Builds
+  the `pincher` binary. **Publishable.**
+- `hybrid-bridge` — `publish = false` (`hybrid-bridge/Cargo.toml:3`). **Out of
+  scope for this release**, unchanged.
 
-The root `README.md` describes the workspace as "two crates" (`pincher-core` and `pincher-cli`) and does not mention `hybrid-bridge` as a user-facing published library (`README.md:113-117`). Whether `hybrid-bridge` should be published at all is noted as an open question below.
-
----
-
-## `pincher-core`
-
-| Item | Status | Notes / Citation |
-|------|--------|------------------|
-| `description` | ✅ ready | inherited from workspace (`Cargo.toml:14`, `pincher-core/Cargo.toml:7`) |
-| `license` | ✅ ready | inherited from workspace (`Cargo.toml:13`, `pincher-core/Cargo.toml:6`) |
-| `repository` | ✅ ready | inherited from workspace (`Cargo.toml:15`, `pincher-core/Cargo.toml:8`) |
-| `homepage` | ✅ ready | inherited from workspace (`Cargo.toml:16`, `pincher-core/Cargo.toml:9`) |
-| `keywords` | ✅ ready | inherited from workspace (`Cargo.toml:18`, `pincher-core/Cargo.toml:11`) |
-| `categories` | ✅ ready | set per-crate (`pincher-core/Cargo.toml:12`) |
-| `readme` | ✅ ready | inherited from workspace, file created (`pincher-core/Cargo.toml:10`, `pincher-core/README.md`) |
-| License files exist | ✅ ready | `LICENSE` (MIT) exists; `LICENSE-APACHE` added |
-| Path deps to members have `version` | ✅ ready | no path dependencies on other workspace members |
-| Version number | ✅ ready | `version.workspace = true` → `0.1.0` (`pincher-core/Cargo.toml:3`) |
-| Name availability | ⚠️ needs human verification | `pincher-core` must be checked on crates.io |
-| Git dependencies | ✅ resolved | `silo-core` was confirmed unused and removed. `ternary-types` in `pincher-core` was replaced with a minimal local `Ternary` enum (per `docs/prep-notes/git-dependency-resolution-options.md`'s Option C); `hybrid-bridge` is now `publish = false` for the 0.1 release, so its remaining deep `ternary-types` usage no longer blocks publishing `pincher-core`/`pincher-cli`. This also fixed an unrelated pre-existing build break on `main` (`error[E0659]: 'warn' is ambiguous`) that predated this whole polish effort. |
-| Formatting (`cargo fmt --check`) | 🔴 needs fix, newly found | Discovered while verifying the above: `main` fails `cargo fmt --check` across ~15 files (mostly `hybrid-bridge/`), unrelated to any change in this polish wave — this is pre-existing formatting debt, not a regression. No Rust toolchain is available in this environment to run `cargo fmt` and verify the fix; needs a pass with a real toolchain before this gate is green. |
-| Hardcoded secrets / dead code | ✅ resolved | Confirmed `pincher-core/src/daemon.rs`, `registry.rs`, and `updater.rs` were unreachable (not declared in `pincher-core/src/lib.rs`, not referenced via `#[path]`, and not used by any `[[bin]]` target) and removed them entirely, eliminating the hardcoded `SUPER_INSTANCE_SHARED_SECRET_KEY_FOR_NAIL_INTEGRITY` secret from the publish surface. **A second, previously-missed copy of the same four files (including the same secret) was found at the repo root's own `src/` directory** — not part of any workspace member (the root `Cargo.toml` is a bare `[workspace]` with no root package, and no other `Cargo.toml` in the workspace has a `path = "src/..."` pointing at it), confirmed orphaned the same way, and removed for the same reason. |
-| TODO/FIXME markers | ⚠️ minor | `pincher-core/src/migration/pack.rs:178` has a `TODO` doc comment for inline checksum verification. Not a blocker on its own, but the public API surface should be complete before a `1.0` publish. |
+Workspace version: **`0.2.0`** (`Cargo.toml:10`). License: `MIT OR Apache-2.0`,
+both `LICENSE` and `LICENSE-APACHE` present at repo root.
 
 ---
 
-## `pincher-cli`
+## Verification run this session (cargo/rustc 1.96.1)
 
-| Item | Status | Notes / Citation |
-|------|--------|------------------|
-| `description` | ✅ ready | inherited from workspace (`pincher-cli/Cargo.toml:7`) |
-| `license` | ✅ ready | inherited from workspace (`pincher-cli/Cargo.toml:6`) |
-| `repository` | ✅ ready | inherited from workspace (`pincher-cli/Cargo.toml:8`) |
-| `homepage` | ✅ ready | inherited from workspace (`pincher-cli/Cargo.toml:9`) |
-| `keywords` | ✅ ready | inherited from workspace (`pincher-cli/Cargo.toml:11`) |
-| `categories` | ✅ ready | set per-crate (`pincher-cli/Cargo.toml:12`) |
-| `readme` | ✅ ready | inherited from workspace, file created (`pincher-cli/Cargo.toml:10`, `pincher-cli/README.md`) |
-| License files exist | ✅ ready | `LICENSE` (MIT) and `LICENSE-APACHE` exist |
-| Path deps to members have `version` | ✅ ready | `pincher-core = { path = "../pincher-core", version = "0.1.0" }` (`pincher-cli/Cargo.toml:19`) |
-| Version number | ✅ ready | `version.workspace = true` → `0.1.0` (`pincher-cli/Cargo.toml:3`) |
-| Name availability / naming | ⚠️ needs human decision | The package name is `pincher-cli`, but the binary name is `pincher` (`pincher-cli/src/main.rs:7-9`, `pincher-cli/Cargo.toml:15-16`). The README currently advertises `cargo install pincher` (`README.md:189`), which would require a package named `pincher`. Verify that `pincher-cli` (and possibly `pincher`) are available on crates.io and decide whether to rename the package or update the README. |
-| Hardcoded secrets / unsafe code | ✅ ready | No hardcoded credentials found in CLI source. The `publish` subcommand takes a registry token via `--token` / `PINCHER_REGISTRY_TOKEN` (`pincher-cli/src/main.rs:106-107`). |
-| Transitive blockers | 🔴 blocked | `pincher-cli` depends on `pincher-core`, which is blocked by the `ternary-types` git dependency. |
+| Check | Command | Result |
+|-------|---------|--------|
+| Formatting | `cargo fmt --check` (whole workspace) | ✅ **pass**, exit 0 — no violations. The ~15-file `cargo fmt` debt the old audit flagged under `hybrid-bridge/` was already fixed on `main` by commit `355d33b` ("Fix cargo fmt violations found by CI's first real automatic run"). `cargo fmt` is now a confirmed no-op. |
+| Build | `cargo build --workspace` | ✅ **pass**, exit 0 |
+| Tests | `cargo test --workspace` | ✅ **pass**, exit 0 — **341 passed, 0 failed** (hybrid-bridge 104+18+1+24, pincher CLI 2, pincher-core 174+16, doc-tests 1+1; 9 ignored) |
+| Dry run (core) | `cargo publish --dry-run -p pincher-core` | ✅ **pass**, exit 0, warning-free — packaged 57 files, 549.4 KiB (125.9 KiB compressed) |
+| Dry run (cli) | `cargo publish --dry-run -p pincher` | ⚠️ **packages cleanly, then fails only at registry lookup** for `pincher-core` ("no matching package named `pincher-core` found / location searched: crates.io index"). This is expected: `pincher` depends on `pincher-core`, which is not on crates.io yet. The packaging step itself succeeds; the only blocker is publish order. |
 
----
+### Crate-name availability (confirmed live, 2026-07-08)
 
-## `hybrid-bridge`
+All three candidate names are unclaimed. Verified against the live crates.io API
+with a proper `User-Agent` header (crates.io blocks the default curl UA):
 
-| Item | Status | Notes / Citation |
-|------|--------|------------------|
-| `description` | ✅ ready | set per-crate (`hybrid-bridge/Cargo.toml:7`) |
-| `license` | ✅ ready | inherited from workspace (`hybrid-bridge/Cargo.toml:6`) |
-| `repository` | ✅ ready | inherited from workspace (`hybrid-bridge/Cargo.toml:8`) |
-| `homepage` | ✅ ready | inherited from workspace (`hybrid-bridge/Cargo.toml:9`) |
-| `keywords` | ✅ ready | set per-crate (`hybrid-bridge/Cargo.toml:11`) |
-| `categories` | ✅ ready | set per-crate (`hybrid-bridge/Cargo.toml:12`) |
-| `readme` | ✅ ready | inherited from workspace, file created (`hybrid-bridge/Cargo.toml:10`, `hybrid-bridge/README.md`) |
-| License files exist | ✅ ready | `LICENSE` (MIT) and `LICENSE-APACHE` exist |
-| Path deps to members have `version` | ✅ ready | `pincher-core = { path = "../pincher-core", version = "0.1.0" }` (`hybrid-bridge/Cargo.toml:15`) |
-| Version number | ✅ ready | `version.workspace = true` → `0.1.0` (`hybrid-bridge/Cargo.toml:3`) |
-| Name availability | ⚠️ needs human verification | `hybrid-bridge` must be checked on crates.io |
-| Publish intent | ⚠️ open question | The root README describes the workspace as two crates and does not list `hybrid-bridge` as a published library (`README.md:113-117`). Its API docs (`hybrid-bridge/API.md`) present it as a reusable crate, but it may be intended as an internal component. Decide whether to publish it or leave it workspace-only. |
-| Git dependencies | 🔴 needs fix | `ternary-types` is inherited from workspace (`hybrid-bridge/Cargo.toml:24` → `Cargo.toml:27`). Same blocker as `pincher-core`: must be resolved before publishing. See [`docs/prep-notes/git-dependency-resolution-options.md`](prep-notes/git-dependency-resolution-options.md). |
-| Dev-only code in public API | ✅ resolved | Mock/chaos modules (`chaos`, `mock_matrix`, `mock_room`, `mock_veto`) and their `MockRoomAgent`/`MockVetoEngine` re-exports are now gated behind `#[cfg(any(test, feature = "mocks"))]` in `hybrid-bridge/src/lib.rs`. The non-default `mocks` feature is auto-enabled only for this crate's own test suite via a `[dev-dependencies]` self-reference, so a plain `cargo add hybrid-bridge` no longer pulls the testing modules into the public API. See `docs/prep-notes/mock-feature-gate-verification-trace.md`. |
+```
+crate `pincher`       does not exist
+crate `pincher-cli`   does not exist
+crate `pincher-core`  does not exist
+```
 
 ---
 
-## Cross-cutting findings
+## Rename applied: `pincher-cli` package → `pincher`
 
-- **Version consistency:** All publishable members are at `0.1.0` (`Cargo.toml:10`).
-- **License files:** The workspace claimed `license = "MIT OR Apache-2.0"` but only an MIT `LICENSE` file existed. An Apache-2.0 `LICENSE-APACHE` file was added to match the declared license.
-- **Workspace metadata:** Added `authors`, `description`, `readme`, and `keywords` to `[workspace.package]` in the root `Cargo.toml` so all members can inherit them consistently.
-- **No Rust toolchain available:** `cargo publish --dry-run` / `cargo package` could not be run to verify packaging, dependency resolution, or crate size. A human with a Rust toolchain must run these checks before publishing.
+**Decision (per the task brief):** rename the *package* to `pincher` rather than
+rewrite the README. Rationale: `pincher` is confirmed available, and the README
+already advertises `cargo install pincher` (`README.md:189`-region). The binary
+target was already named `pincher` (`pincher-cli/Cargo.toml:14-16`,
+`pincher-cli/src/main.rs`), so renaming the package aligns the published package
+name with the documented install command and the binary — least churn.
+
+**Core change:**
+- `pincher-cli/Cargo.toml:2`: `name = "pincher-cli"` → `name = "pincher"`.
+
+**The directory `pincher-cli/` and the `[[bin]] name = "pincher"` target were
+intentionally NOT renamed** — only the `[package] name` field. Cargo resolves the
+workspace member by path, so the member entry `"pincher-cli"` in root
+`Cargo.toml:5` (a path) stays correct.
+
+**Internal references updated** (package-name references that would otherwise
+break `-p` selection or misstate the published name):
+
+- `cargo build/release/test ... -p pincher-cli` → `-p pincher` in:
+  `README.md` (×2), `GETTING_STARTED.md` (×3), `PLUG_AND_PLAY.md`,
+  `TEMPLATES/ONBOARDING.md`, `install.sh`, `EDUCATIONAL_NOTES.md`,
+  `docs/contributing.md`.
+- Crates.io candidate-package lists pruned of `pincher-cli` (it is no longer a
+  package at all): `README.md`, `EDUCATIONAL_NOTES.md`.
+- `pincher-cli/README.md` heading `# pincher-cli` → `# pincher` (this file is
+  the published crate README — see readme note below).
+
+**Left alone (correctly):** directory-path references (`pincher-cli/`,
+`pincher-cli/src/main.rs`, `./pincher-cli` in `.github/workflows/publish_nail.yml`,
+etc.), component/historical mentions (`ARCHITECTURE.md`, `wiring-report.md`,
+`CHANGELOG.md`, `docs/research/*`, `docs/prep-notes/*`), and the arbitrary temp
+file-name prefix string in `pincher-cli/src/main.rs`. `Cargo.lock` was
+auto-regenerated by cargo after the rename (`pincher-cli` → `pincher` at the
+package entry).
 
 ---
 
-## Open questions / required human sign-off
+## readme-path fix (warning silenced)
 
-1. **Name availability:** Verify on crates.io that `pincher-core`, `pincher-cli`, and (if desired) `pincher` and `hybrid-bridge` are available.
-2. **CLI package naming:** Decide whether `pincher-cli` is the intended package name or whether the package should be renamed to `pincher` to match `cargo install pincher` in the README.
-3. **External dependencies:** Resolve the `ternary-types` git dependency. `silo-core` is unused and can be removed. See [`docs/prep-notes/git-dependency-resolution-options.md`](prep-notes/git-dependency-resolution-options.md) for verification details and options.
-4. **Dead code / secrets:** Remove or refactor `pincher-core/src/daemon.rs`, `registry.rs`, and `updater.rs`; in particular replace the hardcoded `SUPER_INSTANCE_SHARED_SECRET_KEY_FOR_NAIL_INTEGRITY` with runtime configuration.
-5. **`hybrid-bridge` scope:** Decide whether `hybrid-bridge` is meant to be a public crate. The mock/chaos dev-only modules are now feature-gated behind the non-default `mocks` feature (see the `hybrid-bridge` table above), so that specific blocker is resolved; the remaining open question is purely whether to publish the crate at all.
+The inherited `readme.workspace = true` resolved to `../README.md` (workspace
+root) from each member's perspective, producing this `cargo publish --dry-run`
+warning:
+
+> readme `../README.md` appears to be a path outside of the package, but there is
+> already a file named `README.md` in the root of the package...
+
+The packaged output was already correct (each crate shipped its own per-crate
+`README.md` with `readme = "README.md"` in the packaged manifest — verified
+byte-for-byte). To make intent explicit and silence the warning, the two
+**publishable** crates now set the readme per-crate:
+
+- `pincher-core/Cargo.toml`: `readme.workspace = true` → `readme = "README.md"`
+- `pincher-cli/Cargo.toml`: `readme.workspace = true` → `readme = "README.md"`
+
+`hybrid-bridge` is `publish = false` so it was left on workspace inheritance.
+After this change both dry runs are **warning-free** (pincher-core end-to-end;
+pincher up to the expected pincher-core registry lookup).
 
 ---
 
-## Safe metadata fixes applied
+## Per-crate status
 
-- `Cargo.toml`: added `authors`, `description`, `readme`, and `keywords` to `[workspace.package]`.
-- `pincher-core/Cargo.toml`: added workspace inheritance for `authors`, `license`, `description`, `repository`, `homepage`, `readme`, `keywords`, plus per-crate `categories`.
-- `pincher-cli/Cargo.toml`: added workspace inheritance for the same metadata fields, per-crate `categories`, and added `version = "0.1.0"` to the `pincher-core` path dependency.
-- `hybrid-bridge/Cargo.toml`: switched `version` to `version.workspace = true`, added workspace inheritance for metadata, added `readme`, `keywords`, `categories`, and added `version = "0.1.0"` to the `pincher-core` path dependency.
-- Created `pincher-core/README.md`, `pincher-cli/README.md`, and `hybrid-bridge/README.md` so each crate's `readme` field points to a real file.
-- Added `LICENSE-APACHE` to satisfy the declared `MIT OR Apache-2.0` dual license.
+### `pincher-core` — ✅ publish-ready
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Metadata (description/license/repository/homepage/keywords/categories) | ✅ | workspace-inherited + per-crate `categories` (`pincher-core/Cargo.toml:12`) |
+| `readme` | ✅ | `pincher-core/README.md` (see readme fix above) |
+| License files | ✅ | `LICENSE` (MIT) + `LICENSE-APACHE` |
+| Version | ✅ | `0.2.0` via `version.workspace = true` |
+| No path-dep-on-member blockers | ✅ | no path dependencies on other workspace members |
+| No git dependencies | ✅ | the old `ternary-types` git dep blocker does not apply to `pincher-core` — it has no git deps in its published dependency set |
+| No hardcoded secrets | ✅ | the old `SUPER_INSTANCE_SHARED_SECRET_KEY_FOR_NAIL_INTEGRITY` surface (`daemon.rs`/`registry.rs`/`updater.rs` and the orphan root `src/`) was removed in prior waves and is absent |
+| `cargo publish --dry-run` | ✅ | exit 0, warning-free, 57 files / 549.4 KiB |
+
+### `pincher` (was `pincher-cli`) — ✅ publish-ready (pending `pincher-core`)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Package name | ✅ | renamed `pincher-cli` → `pincher`; `pincher` confirmed unclaimed on crates.io |
+| Binary name | ✅ | `[[bin]] name = "pincher"` (unchanged) — `cargo install pincher` yields the `pincher` binary |
+| Metadata | ✅ | workspace-inherited + `categories = ["command-line-utilities"]` |
+| `readme` | ✅ | `pincher-cli/README.md` (heading updated to `# pincher`) |
+| License files | ✅ | `LICENSE` (MIT) + `LICENSE-APACHE` |
+| Version | ✅ | `0.2.0` |
+| Path dep has `version` | ✅ | `pincher-core = { path = "../pincher-core", version = "0.2.0" }` (`pincher-cli/Cargo.toml:19`) |
+| No hardcoded secrets / unsafe | ✅ | registry token only via `--token` / `PINCHER_REGISTRY_TOKEN` (`pincher-cli/src/main.rs`) |
+| `cargo publish --dry-run` | ⚠️ → ✅ | packages cleanly; the only dry-run failure is the not-yet-published `pincher-core` dependency, which resolves by publishing `pincher-core` first |
+
+### `hybrid-bridge` — out of scope
+
+`publish = false` (`hybrid-bridge/Cargo.toml:3`). Not published this release.
+Its `cargo fmt` / build / test participation is green as part of the workspace
+checks above.
+
+---
+
+## Minor non-blocking notes (not required for 0.2.0)
+
+- `pincher-core/src/migration/pack.rs:178` carries a `TODO` doc comment for
+  inline checksum verification. Cosmetic; the public API does not depend on it
+  for 0.2.0.

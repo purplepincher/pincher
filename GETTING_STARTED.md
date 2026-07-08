@@ -16,7 +16,7 @@
 ```bash
 git clone https://github.com/purplepincher/pincher.git
 cd pincher
-cargo build --release -p pincher-cli
+cargo build --release -p pincher
 cp target/release/pincher ~/.local/bin/
 ```
 
@@ -30,10 +30,10 @@ curl -fsSL https://raw.githubusercontent.com/purplepincher/pincher/main/install.
 
 ```bash
 # Minimal build (hash embeddings only, no sandbox)
-cargo build --release -p pincher-cli
+cargo build --release -p pincher
 
 # Full build with everything
-cargo build --release -p pincher-cli --features "onnx,landlock,wasmtime"
+cargo build --release -p pincher --features "onnx,landlock,wasmtime"
 ```
 
 | Feature | What It Enables |

@@ -187,7 +187,7 @@ pytest tests/integration/ -v --run-integration
 
 ```bash
 # Full end-to-end test (requires models + bwrap)
-cargo test -p pincher-cli --test e2e
+cargo test -p pincher --test e2e
 
 # Migration round-trip test
 cargo test -p pincher-core test_migration_round_trip
