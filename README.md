@@ -152,7 +152,7 @@ pincher unpack --bundle agent.nail
    - **Similar** — cosine similarity 0.55–0.80 (the result is returned with a warning that it may need review)
    - **Novel** — cosine similarity < 0.55 (no reflex fires)
 3. **Execute** — before any action runs, the **veto engine** checks it. A veto is a safety policy that can **Allow**, **Deny**, or **RequireConfirmation** for a command. The default rule set blocks patterns such as `rm -rf /`, `mkfs`, `dd if=...`, writes to `/etc`, `/sys`, `/proc`, `/boot`, or `/dev`, network commands like `curl`, `wget`, `ssh`, and `nc`, and encoded execution tricks like `base64 -d | sh`, `eval`, and `exec`. If the action passes the veto, it runs through a **sandbox** — a capability-based isolation layer that uses bubblewrap (`bwrap`) and Linux Landlock (when the `landlock` feature is enabled) to restrict what the command can see and do. If neither is available, it falls back to a restricted `std::process::Command` executor with a minimal environment.
-4. **Learn** — every successful execution increments `invoke_count` and updates confidence: success adds 5% of the remaining gap to 1.0, failure subtracts 10% of the current value. Confidence is clamped to `[0.05, 0.95]`.
+4. **Learn** — every successful execution increments `invoke_count`. The confidence formula is implemented and tested (success adds 5% of the remaining gap to 1.0, failure subtracts 10% of the current value, clamped to `[0.05, 0.95]`), **but the current `do`/`do_command` path does not yet invoke it**: only `invoke_count` is updated on each run. The `confidence_update` method exists on `ReflexEngine` and is exercised by unit tests, but it is wired only into the separate `execute()` code path, which the CLI does not call. Confidence therefore stays at its taught value (0.50 for user reflexes, 1.00 for built-ins) until that wiring is completed. This is tracked as a known gap, not an intended design.
 
 The matching layer is deterministic: without the ONNX model, the engine uses a SHA-256 trigram hash fallback in the same 384-dimensional space. This still matches exact intents reliably but is far less semantically aware than the ONNX path.
 
@@ -165,23 +165,29 @@ The matching layer is deterministic: without the ONNX model, the engine uses a S
 
 ### Subcommands
 
+The status markers below indicate what is verified against the actual code, not just what the command name implies:
+
+- ✅ **real today** — traced to working code and (where applicable) passing tests
+- ⚠️ **real but conditional** — works, but needs something external (a server, a key)
+- 🔮 **aspirational / later phase** — described as a direction; the command prints output but does not do the work it names
+
 | Command | Purpose |
 |---------|---------|
-| `pincher status` | Engine health, reflex count, database path |
-| `pincher doctor` | Diagnostic: ONNX model, SQLite, sandbox, disk, fingerprint |
-| `pincher teach` | Interactive prompt to store a new intent→action reflex |
-| `pincher do "..."` | Execute natural language through the reflex engine |
-| `pincher reflexes` | List stored reflexes with confidence and invocation counts |
-| `pincher compile --workspace <path>` | Read a `pincher.toml` manifest and compile to WASM |
-| `pincher mature --manifest <path>` | Adversarial fuzzing seed expansion |
-| `pincher bench` | Embedding latency benchmark |
-| `pincher shell-info` | Hardware fingerprint |
-| `pincher pack --output <file>` | Bundle agent state into a `.nail` archive |
-| `pincher unpack --bundle <file>` | Extract and verify a `.nail` archive |
-| `pincher run --bundle <file> <input>` | Execute a bundle against user input |
-| `pincher publish --bundle <file> --token <token>` | Publish a bundle to a registry |
-| `pincher update` | Check installed bundles for updates |
-| `pincher gastrolith <create|validate|migrate>` | Checkpoint migration helpers |
+| `pincher status` | ✅ Engine health, reflex count, database path |
+| `pincher doctor` | ✅ Diagnostic: ONNX model, SQLite, sandbox, disk, fingerprint |
+| `pincher teach` | ✅ Interactive prompt to store a new intent→action reflex |
+| `pincher do "..."` | ✅ Execute natural language through the reflex engine |
+| `pincher reflexes` | ✅ List stored reflexes with confidence and invocation counts |
+| `pincher compile --workspace <path>` | 🔮 Reads a `pincher.toml` manifest and *prints* a compilation report, but does not actually invoke a WASM toolchain. The output is a simulation — it always reports `[SUCCESS]` regardless of input. Real WASM compilation is a planned future phase. |
+| `pincher mature --manifest <path>` | 🔮 Reads a manifest and *prints* an "expanded seed matrix" whose size is derived from line count (`lines × 4`). No actual embedding, fuzzing, or database writes occur. Real adversarial fuzzing is a planned future phase. |
+| `pincher bench` | ✅ Embedding latency benchmark — embeds five sample phrases and reports average latency. Does not exercise the teach/match/execute pipeline. |
+| `pincher shell-info` | ✅ Hardware fingerprint |
+| `pincher pack --output <file>` | ✅ Bundle agent state into a `.nail` archive |
+| `pincher unpack --bundle <file>` | ✅ Extract and verify a `.nail` archive |
+| `pincher run --bundle <file> <input>` | ✅ Execute a bundle against user input |
+| `pincher publish --bundle <file> --token <token>` | ⚠️ Publishes a bundle to a registry via `curl`. Works, but requires a running registry server at `PINCHER_REGISTRY_URL` (default `https://registry.pincher.dev`, which is not publicly available). |
+| `pincher update` | ⚠️ Checks installed bundles for updates via `curl`. Works, but requires a running registry server (see `publish` above). |
+| `pincher gastrolith <create\|validate\|migrate>` | ✅ Checkpoint migration helpers — `create` writes a JSON checkpoint, `validate` checks it, `migrate` verifies a `.nail` bundle and unpacks it. |
 
 ### Cargo features
 
@@ -214,9 +220,32 @@ curl -L -o ~/.pincher/models/all-MiniLM-L6-v2-int8.onnx \
 - **Linux-first.** Several security and fingerprinting features assume a Linux environment.
 - **Not on crates.io.** Distribution is currently source-only via `install.sh` or a `cargo build` from this repository.
 
+## Library modules beyond the CLI
+
+`pincher-core` exposes several modules as public library APIs that are **real and unit-tested** but are **not wired into the `pincher` CLI's teach/do path**. They are available to anyone depending on `pincher-core` as a Rust crate; the CLI currently exercises only the reflex engine, embedding, database, veto/sandbox, and migration subsystems.
+
+| Module | What it does | Status |
+|--------|-------------|--------|
+| `immunology` | Antigen detection (prompt-injection, malicious-action, resource-abuse, stale-reflex patterns via regex) and persistent immune memory (antibodies stored in SQLite with generation counts). | ✅ Real, tested, standalone |
+| `resource` | PID resource controller with a three-state degradation model (Normal / Light / Critical) that smooths CPU/RAM readings and decides whether to skip the LLM sidecar. | ✅ Real, tested, standalone |
+| `route` | Ternary-weighted room-routing graph (+1 / 0 / −1 edges) with shortest-path search, spectral clustering, label-propagation community detection, and signed modularity scoring. | ✅ Real, tested, standalone |
+| `rpc` | Unix-domain-socket JSON-RPC server (`ping`, `embed`, `match`, `teach`, `status`) for driving the engine from a Python sidecar. | ✅ Real, compiled, standalone |
+| `capability` | Signed capability tokens and capability manifests for granting scoped permissions. | ✅ Real, compiled |
+| `carapace` | Host/guest scaffolding for WASM guest reflex modules (requires the `wasmtime` feature). | ✅ Real, feature-gated |
+| `intent` | Intent-contract schema and validation types. | ✅ Real, compiled |
+
+A newcomer should treat these as "building blocks available in the library" rather than "features the CLI uses today." See [`EDUCATIONAL_NOTES.md`](./EDUCATIONAL_NOTES.md) for a deeper look at the design patterns behind them.
+
 ## Tests
 
-The workspace contains 184 unit tests in `pincher-core`, 64 in `hybrid-bridge`, and 3 end-to-end tests in `tests/e2e_runtime_test.rs`. The e2e tests currently import `BundleSecurityEngine`, which does not exist in `pincher-core`, so the end-to-end suite does not compile as written. The unit-test suites can be run with `cargo test -p pincher-core --lib` and `cargo test -p hybrid-bridge --lib`; full workspace builds are heavy because of the ONNX and sqlite-vec dependencies.
+`pincher-core` contains 184 `#[test]` functions in source. With default features (no `onnx`/`landlock`/`wasmtime`/`ternary-kernel`), **174 run and pass**; the remaining ~10 are gated behind optional feature flags (e.g. the WASM `carapace` guest tests and the `ternary-kernel` SIMD tests). `hybrid-bridge` has 64. There are also 3 end-to-end tests in `tests/e2e_runtime_test.rs`, but that file imports `BundleSecurityEngine`, which does not exist in `pincher-core`, so the end-to-end suite does not compile as written. The runnable suites are:
+
+```bash
+cargo test -p pincher-core --lib    # 174 passed, 0 failed (default features)
+cargo test -p hybrid-bridge --lib   # 64 passed, 0 failed
+```
+
+Full workspace builds are heavy because of the `sqlite-vec` (compiles a C extension) and optional `ort` (ONNX Runtime) dependencies; a clean `cargo test` can take several minutes.
 
 ## Project layout
 

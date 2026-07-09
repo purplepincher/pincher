@@ -154,7 +154,8 @@
 ### Decision 2: Confidence Scoring
 
 - **Context:** How to make the system self-improving without complex ML
-- **Chosen approach:** Multiplicative confidence updates — success ×1.005, failure ×0.95
+- **Chosen approach:** Additive confidence updates — on success add `0.05 × (1 − current)`; on failure subtract `0.10 × current`. Result clamped to `[0.05, 0.95]`. Implemented in `pincher-core/src/reflex/confidence.rs`.
+- **Wiring caveat:** The formula is real and unit-tested, but the current `do`/`do_command` execution path does **not** call `confidence_update` — it only increments `invoke_count`. The update is wired into the separate `execute()` method, which the CLI does not invoke. Confidence therefore remains at its taught value until that wiring is completed.
 - **Trade-offs:** Simple and effective, but doesn't account for task difficulty variation
 
 ### Decision 3: .nail Portable Format

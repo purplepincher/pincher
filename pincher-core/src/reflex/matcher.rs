@@ -28,10 +28,10 @@ pub type MatchOpResult<T> = Result<T, MatchError>;
 
 /// The result of matching an intent against stored reflexes.
 ///
-/// Uses a three-tier classification:
-/// - **Exact**: High-confidence match (>0.90 similarity) — short-circuit execution
-/// - **Similar**: Moderate match (>0.70) — route through LLM for refinement
-/// - **Novel**: No good match (<0.70) — new reflex territory, needs LLM guidance
+/// Uses a three-tier classification (thresholds from [`MatchThresholds::default`]):
+/// - **Exact**: similarity ≥ 0.80 — short-circuit execution
+/// - **Similar**: similarity ≥ 0.55 (and < 0.80) — route through LLM for refinement
+/// - **Novel**: similarity < 0.55 — new reflex territory, needs LLM guidance
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MatchResult {
     /// High-confidence match — can short-circuit directly.
