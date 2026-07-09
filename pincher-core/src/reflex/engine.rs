@@ -527,7 +527,13 @@ impl ReflexEngine {
         }
     }
 
-    /// Update a reflex's confidence: +0.05 on success, -0.10 on failure, clamped to [0.0, 1.0].
+    /// Update a reflex's confidence: on success adds 5% of the gap to 1.0,
+    /// on failure subtracts 10% of current value, clamped to [0.05, 0.95].
+    /// Delegates to [`crate::reflex::confidence::update_confidence`].
+    ///
+    /// **Note:** This method is currently called only from [`ReflexEngine::execute`],
+    /// not from [`ReflexEngine::do_command`]. The `do`/`do_command` path increments
+    /// `invoke_count` but does not yet update confidence.
     #[instrument(skip(self))]
     pub fn confidence_update(&mut self, reflex_id: &str, success: bool) -> EngineResult<()> {
         let reflex = schema::get_reflex_by_id(&self.conn, reflex_id)?
