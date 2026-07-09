@@ -2,15 +2,11 @@
 
 Local-first reflex engine: store intent-to-action pairs, match incoming natural-language intents by vector similarity, and execute the matched action without calling an LLM. A genuine miss is handed back to the caller so an LLM or sidecar can turn it into a new reflex.
 
-## The tension this resolves
+## Background
 
-If you have built anything on top of an LLM, you have probably felt the pull in two directions at once.
+LLM-backed systems face a trade-off. Calling the model for every request is flexible but slow and expensive, even for trivial tasks. Hardcoding the common paths is fast and cheap, but breaks on any phrasing or adjacent request the developer didn't foresee. `pincher` sits between these two approaches.
 
-One direction says: *call the model for everything*. It is flexible, it handles phrasing you never anticipated, and it sounds natural. The cost is that you pay for every token and wait for every round-trip, even when the request is trivial. A voice assistant that asks the cloud for permission to turn on a light is a familiar symptom. So is a customer-support bot that takes three seconds to answer "what are your hours?" because it is busy drafting prose.
-
-The other direction says: *hardcode the common paths*. Match on keywords, maintain a lookup table, run fast local handlers. That works until a user phrases the same need a different way, or asks for something adjacent that you did not pre-declare. Then the system breaks not because the capability is missing, but because the wiring is too rigid.
-
-`pincher` sits between those two poles. It keeps a local, learnable map of **reflexes** — intent-to-action pairs — and fires them in milliseconds when the intent is recognized. When the intent is not recognized, it does not guess; it returns a **novel** result so a smarter layer can decide what to do next. The LLM stops being the first responder for every request and becomes the compiler for the requests you have not taught yet.
+It keeps a local, learnable map of **reflexes** — intent-to-action pairs — and fires them in milliseconds when the intent is recognized. When the intent is not recognized, it does not guess; it returns a **novel** result so a smarter layer can decide what to do next. The LLM stops being the first responder for every request and becomes the compiler for the requests you have not taught yet.
 
 ## The core idea, taught in place
 
